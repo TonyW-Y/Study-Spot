@@ -12,10 +12,12 @@ import Signup from "./pages/Signup";
 import Profile from "./pages/Profile";
 import NotFound from "./pages/NotFound";
 import { AppProvider } from "./context/AppProvider";
+import { ThemeProvider } from "next-themes";
 
 const queryClient = new QueryClient();
 
 const App = () => (
+  <ThemeProvider attribute="class" defaultTheme="system" enableSystem storageKey="studyspot:theme">
   <QueryClientProvider client={queryClient}>
     <AppProvider>
     <TooltipProvider>
@@ -37,6 +39,7 @@ const App = () => (
     </TooltipProvider>
     </AppProvider>
   </QueryClientProvider>
+  </ThemeProvider>
 );
 
 export default App;

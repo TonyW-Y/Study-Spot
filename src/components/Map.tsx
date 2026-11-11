@@ -3,6 +3,10 @@ import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { Location } from '@/types/location';
 import { getCategory } from '@/lib/categories';
+import { useTheme } from 'next-themes';
+
+const styleFor = (theme?: string) =>
+  theme === 'dark' ? 'mapbox://styles/mapbox/dark-v11' : 'mapbox://styles/mapbox/light-v11';
 
 interface MapProps {
   locations: Location[];
@@ -41,6 +45,8 @@ const Map = ({ locations, onLocationClick, className, userLocation }: MapProps) 
   const userMarkerRef = useRef<mapboxgl.Marker | null>(null);
   const clickRef = useRef(onLocationClick);
   const hasCenteredRef = useRef(false);
+  const { resolvedTheme } = useTheme();
+  const themeRef = useRef(resolvedTheme);
 
   useEffect(() => {
     clickRef.current = onLocationClick;
@@ -52,7 +58,7 @@ const Map = ({ locations, onLocationClick, className, userLocation }: MapProps) 
     mapboxgl.accessToken = MAPBOX_TOKEN;
     const instance = new mapboxgl.Map({
       container: mapContainer.current,
-      style: 'mapbox://styles/mapbox/light-v11',
+      style: styleFor(themeRef.current),
       center: DEFAULT_CENTER,
       zoom: 12,
     });
@@ -66,6 +72,13 @@ const Map = ({ locations, onLocationClick, className, userLocation }: MapProps) 
       map.current = null;
     };
   }, []);
+
+  // Swap basemap with the cozy day/night theme
+  useEffect(() => {
+    if (!map.current || themeRef.current === resolvedTheme) return;
+    themeRef.current = resolvedTheme;
+    map.current.setStyle(styleFor(resolvedTheme));
+  }, [resolvedTheme]);
 
   // Sync location markers without re-creating the map
   useEffect(() => {

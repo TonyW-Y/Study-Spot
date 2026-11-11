@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { MapPin, Plus, User, LogIn, LogOut, Menu, X } from "lucide-react";
 import { useApp } from "@/context/app-context";
+import ThemeToggle from "./cozy/ThemeToggle";
 import { Button } from "./ui/enhanced-button";
 
 const Navbar = () => {
@@ -55,6 +56,7 @@ const Navbar = () => {
               </Link>
             ))}
             
+            <ThemeToggle />
             <div className="h-4 w-px bg-border mx-2" />
             
             {user ? (
@@ -73,7 +75,8 @@ const Navbar = () => {
           </div>
 
           {/* Mobile menu button */}
-          <div className="md:hidden flex items-center">
+          <div className="md:hidden flex items-center gap-2">
+            <ThemeToggle />
             <Button
               variant="ghost"
               size="icon"
