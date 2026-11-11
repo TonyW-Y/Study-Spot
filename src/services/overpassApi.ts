@@ -130,23 +130,51 @@ const convertOSMElement = (
   };
 };
 
-// Overpass API query for study locations - optimized for speed and coverage
+// Overpass API query for study locations.
+// Kept lean (tag lookups only, no name regex) because public Overpass servers are often busy.
 const buildOverpassQuery = (lat: number, lon: number, radiusKm: number = 5): string => {
-  const radius = radiusKm * 1000; // Convert to meters
-  
+  const radius = Math.round(radiusKm * 1000);
+  const around = `(around:${radius},${lat},${lon})`;
   return `
-    [out:json][timeout:15];
+    [out:json][timeout:25];
     (
-      node["amenity"~"^(library|cafe|community_centre|university|college|school)$"](around:${radius},${lat},${lon});
-      way["amenity"~"^(library|cafe|community_centre|university|college|school)$"](around:${radius},${lat},${lon});
-      node["building"~"^(university|college|library|school|public|academic)$"](around:${radius},${lat},${lon});
-      way["building"~"^(university|college|library|school|public|academic)$"](around:${radius},${lat},${lon});
-      node["name"~"university|college|library|school|institute|academy"](around:${radius},${lat},${lon});
-      way["name"~"university|college|library|school|institute|academy"](around:${radius},${lat},${lon});
+      nwr["amenity"~"^(library|cafe|community_centre|university|college|coworking_space)$"]["name"]${around};
+      nwr["office"="coworking"]["name"]${around};
+      nwr["building"~"^(university|college|library)$"]["name"]${around};
     );
-    out center;
+    out center 250;
   `;
 };
+
+// Public Overpass instances, tried in order
+const OVERPASS_ENDPOINTS = [
+  'https://overpass-api.de/api/interpreter',
+  'https://overpass.kumi.systems/api/interpreter',
+];
+
+async function queryOverpass(query: string): Promise<{ elements?: OverpassElement[] }> {
+  let lastError: unknown;
+  for (const [index, endpoint] of OVERPASS_ENDPOINTS.entries()) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), index === 0 ? 25000 : 15000);
+    try {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: `data=${encodeURIComponent(query)}`,
+        signal: controller.signal,
+      });
+      if (!response.ok) throw new Error(`Overpass ${response.status}`);
+      return await response.json();
+    } catch (err) {
+      lastError = err;
+      console.warn(`Overpass endpoint failed (${endpoint}):`, err);
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  }
+  throw lastError ?? new Error('Overpass unavailable');
+}
 
 // Fallback mock data for when OSM API fails - more comprehensive
 const getFallbackLocations = (lat: number, lon: number): OSMLocation[] => {
@@ -268,31 +296,8 @@ export const fetchStudyLocations = async (
   radiusKm: number = 5
 ): Promise<OSMLocation[]> => {
   try {
-    console.log('Fetching study locations from OSM...');
-    const query = buildOverpassQuery(latitude, longitude, radiusKm);
-    
-    // Use AbortController for timeout
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
-    
-    const response = await fetch('https://overpass-api.de/api/interpreter', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: `data=${encodeURIComponent(query)}`,
-      signal: controller.signal,
-    });
+    const data = await queryOverpass(buildOverpassQuery(latitude, longitude, radiusKm));
 
-    clearTimeout(timeoutId);
-
-    if (!response.ok) {
-      console.warn(`Overpass API error: ${response.status}, using fallback data`);
-      return getFallbackLocations(latitude, longitude);
-    }
-
-    const data = await response.json();
-    
     if (!data.elements || data.elements.length === 0) {
       console.warn('No OSM data found, using fallback data');
       return getFallbackLocations(latitude, longitude);
@@ -329,7 +334,7 @@ export const fetchStudyLocations = async (
       } else if (amenity === 'college' || building === 'college' || buildingUse === 'college' || 
                  name.includes('college')) {
         category = 'college';
-      } else if (amenity === 'coworking_space') {
+      } else if (amenity === 'coworking_space' || (tags.office || '') === 'coworking') {
         category = 'coworking_space';
       } else if (amenity === 'cafe') {
         category = 'cafe';

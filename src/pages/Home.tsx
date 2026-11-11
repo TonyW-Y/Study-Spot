@@ -65,6 +65,8 @@ const Home = () => {
   const [locations, setLocations] = useState<Location[]>(() => cached?.locations ?? []);
   const [loading, setLoading] = useState(!cached);
   const [notice, setNotice] = useState<string | null>(null);
+  const [canRetry, setCanRetry] = useState(false);
+  const [slow, setSlow] = useState(false);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
@@ -92,6 +94,9 @@ const Home = () => {
   const loadArea = useCallback(async (next: Area) => {
     setArea(next);
     setLoading(true);
+    setCanRetry(false);
+    setSlow(false);
+    const slowTimer = window.setTimeout(() => setSlow(true), 6000);
     try {
       const found = addDistancesToLocations(
         await fetchStudyLocations(next.latitude, next.longitude, FETCH_RADIUS_KM),
@@ -99,12 +104,17 @@ const Home = () => {
         next.longitude
       );
       setLocations(found);
-      saveNearby({ center: { latitude: next.latitude, longitude: next.longitude }, label: next.label, locations: found });
       if (found.every((l) => l.source === "sample")) {
-        setNotice("We couldn't reach OpenStreetMap right now, so these are sample spots. Try again in a moment.");
+        // Don't cache sample data so the next visit tries OpenStreetMap again
+        setNotice("OpenStreetMap is busy right now, so these are sample spots for the moment.");
+        setCanRetry(true);
+      } else {
+        saveNearby({ center: { latitude: next.latitude, longitude: next.longitude }, label: next.label, locations: found });
       }
     } finally {
+      window.clearTimeout(slowTimer);
       setLoading(false);
+      setSlow(false);
     }
   }, []);
 
@@ -315,7 +325,14 @@ const Home = () => {
         {notice && (
           <div className="mb-6 flex items-start gap-3 rounded-2xl border border-secondary/50 bg-secondary/15 p-4 text-sm animate-fade-up">
             <span className="text-lg">🧡</span>
-            <p className="flex-1">{notice}</p>
+            <p className="flex-1">
+              {notice}
+              {canRetry && area && (
+                <button type="button" className="ml-2 font-bold text-primary hover:underline" onClick={() => { setNotice(null); loadArea(area); }}>
+                  Try again
+                </button>
+              )}
+            </p>
             <button type="button" onClick={() => setNotice(null)} aria-label="Dismiss" className="text-muted-foreground hover:text-foreground">
               <X className="h-4 w-4" />
             </button>
@@ -332,7 +349,7 @@ const Home = () => {
               <div>
                 <h2 className="text-2xl font-bold md:text-3xl">Study spots {area?.isUser ? "near you" : "around here"}</h2>
                 <p className="mt-1 text-muted-foreground">
-                  {loading ? "Brewing results…" : `${filteredLocations.length} cozy ${filteredLocations.length === 1 ? "place" : "places"} found`}
+                  {loading ? (slow ? "OpenStreetMap is a little busy. Still looking… ☕" : "Brewing results…") : `${filteredLocations.length} cozy ${filteredLocations.length === 1 ? "place" : "places"} found`}
                 </p>
               </div>
 
