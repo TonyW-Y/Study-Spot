@@ -10,136 +10,131 @@ interface MapProps {
   userLocation?: { latitude: number; longitude: number } | null;
 }
 
-// ✅ Just set your token here, no prompt
-const MAPBOX_TOKEN = 'pk.eyJ1IjoibmljaG9sYXNsb29rIiwiYSI6ImNtZjJ4eGk4ZDBnazMybW9vc3JrMWNvaGQifQ.4mhJLBjtalIH-OZ-ETW0-A';
+const MAPBOX_TOKEN =
+  import.meta.env.VITE_MAPBOX_TOKEN ||
+  '';
+
+const DEFAULT_CENTER: [number, number] = [-122.4194, 37.7749];
+
+const markerColor = (category: string) => {
+  const colors: Record<string, string> = {
+    cafe: '#F59E0B',
+    library: '#0F766E',
+    coworking_space: '#059669',
+    university: '#7C3AED',
+    college: '#7C3AED',
+    community_centre: '#DB2777',
+    public_building: '#6B7280',
+  };
+  return colors[category] || colors.cafe;
+};
+
+const buildPopupContent = (location: Location) => {
+  const root = document.createElement('div');
+  root.style.padding = '4px';
+  const title = document.createElement('div');
+  title.style.fontWeight = '600';
+  title.style.fontSize = '13px';
+  title.textContent = location.name;
+  const meta = document.createElement('div');
+  meta.style.fontSize = '12px';
+  meta.style.opacity = '0.75';
+  meta.textContent = `${location.category.replace(/_/g, ' ')} · ★ ${location.ratings.overall.toFixed(1)}`;
+  root.append(title, meta);
+  return root;
+};
 
 const Map = ({ locations, onLocationClick, className, userLocation }: MapProps) => {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
+  const markersRef = useRef<mapboxgl.Marker[]>([]);
   const userMarkerRef = useRef<mapboxgl.Marker | null>(null);
+  const clickRef = useRef(onLocationClick);
+  const hasCenteredRef = useRef(false);
 
+  useEffect(() => {
+    clickRef.current = onLocationClick;
+  }, [onLocationClick]);
+
+  // Create the map exactly once
   useEffect(() => {
     if (!mapContainer.current) return;
-
     mapboxgl.accessToken = MAPBOX_TOKEN;
-
-    // Initialize map
-    map.current = new mapboxgl.Map({
+    const instance = new mapboxgl.Map({
       container: mapContainer.current,
       style: 'mapbox://styles/mapbox/light-v11',
-      center: userLocation ? [userLocation.longitude, userLocation.latitude] : [-122.4194, 37.7749], // San Francisco default or user
+      center: DEFAULT_CENTER,
       zoom: 12,
     });
-
-    map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
-
-    // Add markers
-    locations.forEach((location) => {
-      const categoryColors = {
-        cafe: '#F59E0B',
-        library: '#0F766E',
-        coworking: '#059669',
-        restaurant: '#6B7280',
-      };
-      const markerColor = categoryColors[location.category as keyof typeof categoryColors] || categoryColors.cafe;
-
-      const markerElement = document.createElement('div');
-      markerElement.style.cssText = `
-        width: 30px;
-        height: 30px;
-        background-color: ${markerColor};
-        border: 3px solid white;
-        border-radius: 50%;
-        cursor: pointer;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-      `;
-
-      const icon = document.createElement('div');
-      icon.innerHTML = '📍';
-      icon.style.fontSize = '14px';
-      markerElement.appendChild(icon);
-
-      const marker = new mapboxgl.Marker(markerElement)
-        .setLngLat([location.longitude, location.latitude])
-        .addTo(map.current!);
-
-      markerElement.addEventListener('click', () => {
-        onLocationClick?.(location.id);
-      });
-
-      const popup = new mapboxgl.Popup({
-        offset: 25,
-        closeButton: false,
-        closeOnClick: false,
-        anchor: 'bottom',
-      }).setHTML(`
-        <div class="p-2">
-          <h3 class="font-semibold text-sm">${location.name}</h3>
-          <p class="text-xs text-gray-600 capitalize">${location.category}</p>
-          <div class="flex items-center mt-1">
-            <span class="text-xs">★ ${location.ratings.overall.toFixed(1)}</span>
-          </div>
-        </div>
-      `);
-
-      markerElement.addEventListener('mouseenter', () => {
-        popup.setLngLat([location.longitude, location.latitude]).addTo(map.current!);
-      });
-
-      markerElement.addEventListener('mouseleave', () => {
-        popup.remove();
-      });
-    });
-
-    // Add user marker at init
-    if (userLocation) {
-      const userEl = document.createElement('div');
-      userEl.style.cssText = `
-        width: 16px;
-        height: 16px;
-        background-color: #3B82F6;
-        border: 2px solid white;
-        border-radius: 50%;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-      `;
-      userMarkerRef.current = new mapboxgl.Marker(userEl)
-        .setLngLat([userLocation.longitude, userLocation.latitude])
-        .addTo(map.current!);
-    }
-
+    instance.addControl(new mapboxgl.NavigationControl(), 'top-right');
+    map.current = instance;
     return () => {
-      map.current?.remove();
+      markersRef.current.forEach((m) => m.remove());
+      markersRef.current = [];
+      userMarkerRef.current = null;
+      instance.remove();
+      map.current = null;
     };
-  }, [locations, onLocationClick]);
+  }, []);
 
-  // Update user marker when userLocation changes after init
+  // Sync location markers without re-creating the map
   useEffect(() => {
-    if (!map.current) return;
+    const instance = map.current;
+    if (!instance) return;
+
+    markersRef.current.forEach((m) => m.remove());
+    markersRef.current = [];
+
+    locations.forEach((location) => {
+      const el = document.createElement('div');
+      el.style.cssText = `
+        width: 30px; height: 30px; background-color: ${markerColor(location.category)};
+        border: 3px solid white; border-radius: 50%; cursor: pointer;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      `;
+      el.setAttribute('role', 'button');
+      el.setAttribute('aria-label', location.name);
+
+      const popup = new mapboxgl.Popup({ offset: 20, closeButton: false, closeOnClick: false })
+        .setDOMContent(buildPopupContent(location));
+
+      const marker = new mapboxgl.Marker(el)
+        .setLngLat([location.longitude, location.latitude])
+        .addTo(instance);
+
+      el.addEventListener('click', () => clickRef.current?.(location.id));
+      el.addEventListener('mouseenter', () =>
+        popup.setLngLat([location.longitude, location.latitude]).addTo(instance)
+      );
+      el.addEventListener('mouseleave', () => popup.remove());
+
+      markersRef.current.push(marker);
+    });
+  }, [locations]);
+
+  // User marker + center once when location first arrives
+  useEffect(() => {
+    const instance = map.current;
+    if (!instance) return;
     if (!userLocation) {
-      if (userMarkerRef.current) {
-        userMarkerRef.current.remove();
-        userMarkerRef.current = null;
-      }
+      userMarkerRef.current?.remove();
+      userMarkerRef.current = null;
       return;
     }
+    const lngLat: [number, number] = [userLocation.longitude, userLocation.latitude];
     if (!userMarkerRef.current) {
       const userEl = document.createElement('div');
       userEl.style.cssText = `
-        width: 16px;
-        height: 16px;
-        background-color: #3B82F6;
-        border: 2px solid white;
-        border-radius: 50%;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        width: 16px; height: 16px; background-color: #3B82F6; border: 2px solid white;
+        border-radius: 50%; box-shadow: 0 2px 8px rgba(0,0,0,0.2);
       `;
-      userMarkerRef.current = new mapboxgl.Marker(userEl)
-        .setLngLat([userLocation.longitude, userLocation.latitude])
-        .addTo(map.current);
+      userMarkerRef.current = new mapboxgl.Marker(userEl).setLngLat(lngLat).addTo(instance);
     } else {
-      userMarkerRef.current.setLngLat([userLocation.longitude, userLocation.latitude]);
+      userMarkerRef.current.setLngLat(lngLat);
+    }
+    if (!hasCenteredRef.current) {
+      hasCenteredRef.current = true;
+      instance.jumpTo({ center: lngLat, zoom: 13 });
     }
   }, [userLocation]);
 

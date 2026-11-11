@@ -1,30 +1,23 @@
 // Overpass API service for fetching OpenStreetMap study locations
-export interface OSMLocation {
-  id: string;
-  name: string;
-  address: string;
-  category: string;
-  latitude: number;
-  longitude: number;
-  ratings: {
-    wifi: number;
-    outlets: number;
-    noise: number;
-    seating: number;
-    overall: number;
-  };
-  reviewCount: number;
-  distance?: string;
-  image?: string;
-  description: string;
-  hours?: string;
-  amenities?: string[];
-  osmData?: {
-    type: string;
-    id: number;
-    tags: Record<string, string>;
-  };
+import type { Location } from '@/types/location';
+
+export type OSMLocation = Location;
+
+interface OverpassElement {
+  type: string;
+  id: number;
+  lat?: number;
+  lon?: number;
+  center?: { lat: number; lon: number };
+  tags?: Record<string, string>;
 }
+
+// Deterministic pseudo review count so it doesn't change on every fetch
+const stableCount = (seed: string) => {
+  let h = 0;
+  for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) | 0;
+  return (Math.abs(h) % 40) + 5;
+};
 
 // Default ratings for OSM locations (since OSM doesn't have user ratings)
 const getDefaultRatings = (category: string) => {
@@ -94,7 +87,12 @@ const generateAmenities = (tags: Record<string, string>): string[] => {
 };
 
 // Convert OSM element to our location format
-const convertOSMElement = (element: any, category: string): OSMLocation => {
+const convertOSMElement = (
+  element: OverpassElement,
+  lat: number,
+  lon: number,
+  category: string
+): OSMLocation => {
   const tags = element.tags || {};
   const name = tags.name || `${category.charAt(0).toUpperCase() + category.slice(1)} Location`;
   
@@ -116,10 +114,11 @@ const convertOSMElement = (element: any, category: string): OSMLocation => {
     name,
     address,
     category,
-    latitude: element.lat,
-    longitude: element.lon,
+    latitude: lat,
+    longitude: lon,
     ratings: getDefaultRatings(category),
-    reviewCount: Math.floor(Math.random() * 50) + 10, // Mock review count
+    reviewCount: stableCount(`${element.type}_${element.id}`),
+    source: 'osm',
     description: generateDescription(category, tags),
     hours: tags.opening_hours || 'Hours not specified',
     amenities: generateAmenities(tags),
@@ -259,7 +258,7 @@ const getFallbackLocations = (lat: number, lon: number): OSMLocation[] => {
     },
   ];
 
-  return mockLocations;
+  return mockLocations.map((loc) => ({ ...loc, source: 'sample' as const }));
 };
 
 // Fetch study locations from Overpass API with performance optimization
@@ -293,7 +292,6 @@ export const fetchStudyLocations = async (
     }
 
     const data = await response.json();
-    console.log('OSM API response:', data);
     
     if (!data.elements || data.elements.length === 0) {
       console.warn('No OSM data found, using fallback data');
@@ -306,8 +304,12 @@ export const fetchStudyLocations = async (
     const locations: OSMLocation[] = [];
     const seenIds = new Set<string>();
 
-    elements.forEach((element: any) => {
-      if (!element.lat || !element.lon) return; // Skip elements without coordinates
+    (elements as OverpassElement[]).forEach((element) => {
+      // Ways/relations come back with a `center` instead of lat/lon (because of `out center`)
+      const lat = element.lat ?? element.center?.lat;
+      const lon = element.lon ?? element.center?.lon;
+      if (lat == null || lon == null) return; // Skip elements without coordinates
+      if (!element.tags?.name) return; // Unnamed features aren't useful as study spots
       
       const tags = element.tags || {};
       let category = 'cafe'; // default
@@ -343,7 +345,7 @@ export const fetchStudyLocations = async (
         category = 'university'; // Treat schools and institutes as university-like
       }
 
-      const location = convertOSMElement(element, category);
+      const location = convertOSMElement(element, lat, lon, category);
       
       // Avoid duplicates
       if (!seenIds.has(location.id)) {
@@ -352,20 +354,16 @@ export const fetchStudyLocations = async (
       }
     });
 
-    // Always supplement with fallback data to ensure we have enough locations
-    console.log(`Found ${locations.length} OSM locations, supplementing with fallback data`);
-    const fallbackLocations = getFallbackLocations(latitude, longitude);
-    fallbackLocations.forEach(loc => {
-      if (!seenIds.has(loc.id)) {
-        locations.push(loc);
-      }
-    });
+    if (locations.length === 0) {
+      console.warn('No usable OSM locations, using sample data');
+      return getFallbackLocations(latitude, longitude);
+    }
 
     console.log(`Total study locations: ${locations.length}`);
     return locations;
 
   } catch (error) {
-    if (error.name === 'AbortError') {
+    if (error instanceof DOMException && error.name === 'AbortError') {
       console.warn('OSM API request timed out, using fallback data');
     } else {
       console.error('Error fetching study locations:', error);
@@ -393,6 +391,9 @@ export const calculateDistance = (
   return R * c;
 };
 
+export const formatDistance = (km: number) =>
+  km < 1 ? `${Math.round(km * 1000)} m` : `${km.toFixed(km < 10 ? 1 : 0)} km`;
+
 // Add distance to locations based on user position
 export const addDistancesToLocations = (
   locations: OSMLocation[],
@@ -403,7 +404,8 @@ export const addDistancesToLocations = (
     const distance = calculateDistance(userLat, userLon, location.latitude, location.longitude);
     return {
       ...location,
-      distance: `${distance.toFixed(distance < 10 ? 1 : 0)} km`,
+      distanceKm: distance,
+      distance: formatDistance(distance),
     };
   });
 };

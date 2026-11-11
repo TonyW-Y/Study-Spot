@@ -63,7 +63,7 @@ const FilterPanel = ({ filters, onFiltersChange, className, onClose }: FilterPan
   const resetFilters = () => {
     const clearedFilters: FilterState = {
       categories: [],
-      distance: 1,
+      distance: 5,
       ratings: { wifi: 0, outlets: 0, noise: 0, seating: 0, overall: 0 },
     };
     setLocalFilters(clearedFilters);

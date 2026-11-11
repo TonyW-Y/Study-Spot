@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Map from "@/components/Map";
 import LocationCard from "@/components/LocationCard";
@@ -11,6 +11,14 @@ import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Location, FilterState } from "@/types/location";
 import { fetchStudyLocations, addDistancesToLocations } from "@/services/overpassApi";
+
+const ALL_CATEGORIES = ["cafe", "library", "coworking_space", "university", "college", "community_centre", "public_building"];
+const FETCH_RADIUS_KM = 5;
+const defaultFilters = (): FilterState => ({
+  categories: [...ALL_CATEGORIES],
+  distance: 5,
+  ratings: { wifi: 0, outlets: 0, noise: 0, seating: 0, overall: 0 },
+});
 import heroImage from "@/assets/hero-studyspot.jpg";
 
 const Home = () => {
@@ -24,11 +32,13 @@ const Home = () => {
   const navigate = useNavigate();
 
   // Master filters state
-  const [filters, setFilters] = useState<FilterState>({
-    categories: ["cafe", "library", "coworking_space", "university", "college", "community_centre", "public_building"],
-    distance: 1,
-    ratings: { wifi: 0, outlets: 0, noise: 0, seating: 0, overall: 0 },
-  });
+  const [filters, setFilters] = useState<FilterState>(defaultFilters);
+  const [debouncedQuery, setDebouncedQuery] = useState("");
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQuery(searchQuery.trim().toLowerCase()), 200);
+    return () => clearTimeout(t);
+  }, [searchQuery]);
 
   // Mobile drawer open/close
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -53,7 +63,7 @@ const Home = () => {
           const osmLocations = await fetchStudyLocations(
             userPos.latitude,
             userPos.longitude,
-            filters.distance
+            FETCH_RADIUS_KM
           );
           
           // Add distances to locations
@@ -70,63 +80,49 @@ const Home = () => {
           setLoading(false);
         }
       },
-      (err) => {
+      () => {
         setError("Unable to access your location. Please enable location services and try again.");
         setLoading(false);
       },
       { enableHighAccuracy: true, maximumAge: 60000, timeout: 10000 }
     );
-  }, [filters.distance]);
-
-  // Haversine distance in km
-  const toRadians = (degrees: number) => (degrees * Math.PI) / 180;
-  const getDistanceKm = (
-    lat1: number,
-    lon1: number,
-    lat2: number,
-    lon2: number
-  ): number => {
-    const R = 6371; // km
-    const dLat = toRadians(lat2 - lat1);
-    const dLon = toRadians(lon2 - lon1);
-    const a =
-      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos(toRadians(lat1)) *
-        Math.cos(toRadians(lat2)) *
-        Math.sin(dLon / 2) * Math.sin(dLon / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c;
-  };
-
-  const formatDistance = (km: number) => `${km.toFixed(km < 10 ? 1 : 0)} km`;
+  }, []);
 
   // Filter locations based on search and filters
-  const filteredLocations = locations.filter((location) => {
-    // Search filter
-    const matchesSearch =
-      location.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      location.address.toLowerCase().includes(searchQuery.toLowerCase());
+  const filteredLocations = useMemo(() => {
+    return locations
+      .filter((location) => {
+        const matchesSearch =
+          !debouncedQuery ||
+          location.name.toLowerCase().includes(debouncedQuery) ||
+          location.address.toLowerCase().includes(debouncedQuery) ||
+          location.category.replace(/_/g, " ").includes(debouncedQuery);
 
-    // Category filter
-    const matchesCategory =
-      filters.categories.length === 0 || filters.categories.includes(location.category);
+        const matchesCategory =
+          filters.categories.length === 0 || filters.categories.includes(location.category);
 
-    // Rating filters
-    const matchesRatings = Object.entries(filters.ratings).every(([key, minRating]) => {
-      if (minRating === 0) return true;
-      return location.ratings[key as keyof typeof location.ratings] >= minRating;
-    });
+        // Slider max (5) means "5+ km" i.e. no distance limit
+        const matchesDistance =
+          filters.distance >= 5 || location.distanceKm == null || location.distanceKm <= filters.distance;
 
-    return matchesSearch && matchesCategory && matchesRatings;
-  });
+        const matchesRatings = Object.entries(filters.ratings).every(([key, minRating]) => {
+          if (minRating === 0) return true;
+          return location.ratings[key as keyof typeof location.ratings] >= minRating;
+        });
 
-  const handleLocationClick = (locationId: string) => {
-    setSelectedLocationId(locationId);
-    const location = locations.find(loc => loc.id === locationId);
-    navigate(`/location/${locationId}`, { 
-      state: { location } 
-    });
-  };
+        return matchesSearch && matchesCategory && matchesDistance && matchesRatings;
+      })
+      .sort((a, b) => (a.distanceKm ?? Infinity) - (b.distanceKm ?? Infinity));
+  }, [locations, debouncedQuery, filters]);
+
+  const handleLocationClick = useCallback(
+    (locationId: string) => {
+      setSelectedLocationId(locationId);
+      const location = locations.find((loc) => loc.id === locationId);
+      navigate(`/location/${locationId}`, { state: { location } });
+    },
+    [locations, navigate]
+  );
 
   return (
     <div className="min-h-screen bg-background">
@@ -164,15 +160,13 @@ const Home = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 md:py-8">
         <div className="flex flex-col lg:flex-row gap-4 md:gap-6">
           {/* Sidebar Filter - desktop only, map view only */}
-          {viewMode === "map" && (
-            <div className="hidden lg:block lg:w-80 space-y-4 md:space-y-6">
-              <FilterPanel
-                filters={filters}
-                onFiltersChange={setFilters}
-                className="lg:sticky lg:top-20"
-              />
-            </div>
-          )}
+          <div className="hidden lg:block lg:w-80 space-y-4 md:space-y-6">
+            <FilterPanel
+              filters={filters}
+              onFiltersChange={setFilters}
+              className="lg:sticky lg:top-20"
+            />
+          </div>
 
           {/* Main Content */}
           <div className="flex-1 space-y-4 md:space-y-6">
@@ -293,11 +287,7 @@ const Home = () => {
                   variant="outline"
                   onClick={() => {
                     setSearchQuery("");
-                    setFilters({
-                      categories: ["cafe", "library", "coworking_space", "university", "college", "community_centre", "public_building"],
-                      distance: 1,
-                      ratings: { wifi: 0, outlets: 0, noise: 0, seating: 0, overall: 0 },
-                    });
+                    setFilters(defaultFilters());
                   }}
                 >
                   Clear Filters

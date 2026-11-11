@@ -20,6 +20,11 @@ export interface Location {
   description: string;
   hours?: string;
   amenities?: string[];
+  /** Where this spot came from: OpenStreetMap, built-in sample data, or added by a user */
+  source?: 'osm' | 'sample' | 'community';
+  /** Numeric distance from the user in km (used for filtering/sorting) */
+  distanceKm?: number;
+  createdBy?: string;
   // OSM-specific data (optional for backward compatibility)
   osmData?: {
     type: string;

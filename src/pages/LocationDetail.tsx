@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/enhanced-button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Location } from "@/types/location";
 import { fetchStudyLocations, addDistancesToLocations } from "@/services/overpassApi";
 import { useToast } from "@/hooks/use-toast";
@@ -73,7 +72,6 @@ const LocationDetail = () => {
   }, [id, locationState.state]);
 
   // Mock reviews for now (OSM doesn't have user reviews)
-  const reviews: any[] = [];
 
   if (loading) {
     return (
@@ -115,8 +113,7 @@ const LocationDetail = () => {
     { key: 'seating', label: 'Seating', icon: Users, color: 'text-purple-500' },
   ];
 
-  const handleReviewSubmit = (reviewData: any) => {
-    console.log('Review submitted:', reviewData);
+  const handleReviewSubmit = () => {
     toast({
       title: "Review submitted!",
       description: "Thank you for sharing your experience.",
