@@ -1,5 +1,6 @@
 // Overpass API service for fetching OpenStreetMap study locations
 import type { Location } from '@/types/location';
+import { buildOverpassQuery, OVERPASS_ENDPOINTS } from './overpassQuery';
 
 export type OSMLocation = Location;
 
@@ -130,31 +131,10 @@ const convertOSMElement = (
   };
 };
 
-// Overpass API query for study locations.
-// Kept lean (tag lookups only, no name regex) because public Overpass servers are often busy.
-const buildOverpassQuery = (lat: number, lon: number, radiusKm: number = 5): string => {
-  const radius = Math.round(radiusKm * 1000);
-  const around = `(around:${radius},${lat},${lon})`;
-  return `
-    [out:json][timeout:25];
-    (
-      nwr["amenity"~"^(library|cafe|community_centre|university|college|coworking_space)$"]["name"]${around};
-      nwr["office"="coworking"]["name"]${around};
-      nwr["building"~"^(university|college|library)$"]["name"]${around};
-    );
-    out center 250;
-  `;
-};
-
-// Public Overpass instances, tried in order
-const OVERPASS_ENDPOINTS = [
-  'https://overpass-api.de/api/interpreter',
-  'https://overpass.kumi.systems/api/interpreter',
-];
-
-async function queryOverpass(query: string): Promise<{ elements?: OverpassElement[] }> {
+async function queryOverpassDirect(query: string): Promise<{ elements?: OverpassElement[] }> {
   let lastError: unknown;
-  for (const [index, endpoint] of OVERPASS_ENDPOINTS.entries()) {
+  // Direct browser calls: only the first two servers, to keep waits short
+  for (const [index, endpoint] of OVERPASS_ENDPOINTS.slice(0, 2).entries()) {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), index === 0 ? 25000 : 15000);
     try {
@@ -174,6 +154,31 @@ async function queryOverpass(query: string): Promise<{ elements?: OverpassElemen
     }
   }
   throw lastError ?? new Error('Overpass unavailable');
+}
+
+/**
+ * In production, ask our own /api/overpass function (server-side, CDN-cached, no CORS issues).
+ * In local dev (plain Vite has no /api), or if the function fails, call Overpass directly.
+ */
+async function queryOverpass(lat: number, lon: number, radiusKm: number): Promise<{ elements?: OverpassElement[] }> {
+  if (!import.meta.env.DEV) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 45000);
+    try {
+      const res = await fetch(`/api/overpass?lat=${lat.toFixed(4)}&lon=${lon.toFixed(4)}&r=${radiusKm}`, {
+        signal: controller.signal,
+      });
+      if (res.ok && res.headers.get('content-type')?.includes('application/json')) {
+        return await res.json();
+      }
+      console.warn(`StudySpot API returned ${res.status}, trying Overpass directly`);
+    } catch (err) {
+      console.warn('StudySpot API failed, trying Overpass directly:', err);
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  }
+  return queryOverpassDirect(buildOverpassQuery(lat, lon, radiusKm));
 }
 
 // Fallback mock data for when OSM API fails - more comprehensive
@@ -296,7 +301,7 @@ export const fetchStudyLocations = async (
   radiusKm: number = 5
 ): Promise<OSMLocation[]> => {
   try {
-    const data = await queryOverpass(buildOverpassQuery(latitude, longitude, radiusKm));
+    const data = await queryOverpass(latitude, longitude, radiusKm);
 
     if (!data.elements || data.elements.length === 0) {
       console.warn('No OSM data found, using fallback data');
