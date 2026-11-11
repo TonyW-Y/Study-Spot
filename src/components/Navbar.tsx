@@ -1,12 +1,20 @@
 import { useState } from "react";
-import { Link, useLocation } from "react-router-dom";
-import { MapPin, Plus, User, LogIn, Menu, X } from "lucide-react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { MapPin, Plus, User, LogIn, LogOut, Menu, X } from "lucide-react";
+import { useApp } from "@/context/app-context";
 import { Button } from "./ui/enhanced-button";
-import { cn } from "@/lib/utils";
 
 const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
+  const { user, logout } = useApp();
+
+  const handleLogout = () => {
+    logout();
+    setIsMenuOpen(false);
+    navigate("/");
+  };
 
   const navigation = [
     { name: "Map", href: "/", icon: MapPin },
@@ -49,12 +57,19 @@ const Navbar = () => {
             
             <div className="h-4 w-px bg-border mx-2" />
             
-            <Link to="/login">
-              <Button variant="outline" size="sm" className="gap-2">
-                <LogIn className="w-4 h-4" />
-                Login
+            {user ? (
+              <Button variant="outline" size="sm" className="gap-2" onClick={handleLogout}>
+                <LogOut className="w-4 h-4" />
+                Log out
               </Button>
-            </Link>
+            ) : (
+              <Link to="/login">
+                <Button variant="outline" size="sm" className="gap-2">
+                  <LogIn className="w-4 h-4" />
+                  Login
+                </Button>
+              </Link>
+            )}
           </div>
 
           {/* Mobile menu button */}
@@ -94,12 +109,19 @@ const Navbar = () => {
                 </Link>
               ))}
               <div className="border-t border-border pt-2 mt-2">
-                <Link to="/login" onClick={() => setIsMenuOpen(false)}>
-                  <Button variant="outline" size="sm" className="w-full justify-start gap-2">
-                    <LogIn className="w-4 h-4" />
-                    Login
+                {user ? (
+                  <Button variant="outline" size="sm" className="w-full justify-start gap-2" onClick={handleLogout}>
+                    <LogOut className="w-4 h-4" />
+                    Log out
                   </Button>
-                </Link>
+                ) : (
+                  <Link to="/login" onClick={() => setIsMenuOpen(false)}>
+                    <Button variant="outline" size="sm" className="w-full justify-start gap-2">
+                      <LogIn className="w-4 h-4" />
+                      Login
+                    </Button>
+                  </Link>
+                )}
               </div>
             </div>
           </div>

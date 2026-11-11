@@ -8,10 +8,12 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
+import { useApp } from "@/context/app-context";
 
 const Signup = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { signup } = useApp();
   
   const [formData, setFormData] = useState({
     name: "",
@@ -65,24 +67,16 @@ const Signup = () => {
 
     if (!formData.agreeToTerms) {
       toast({
-        title: "Terms & Conditions",
-        description: "Please agree to the terms and conditions to continue.",
+        title: "Community guidelines",
+        description: "Please agree to the community guidelines to continue.",
         variant: "destructive",
       });
       setIsLoading(false);
       return;
     }
 
-    // Simulate API call
     try {
-      console.log("Signing up:", { 
-        name: formData.name, 
-        email: formData.email 
-      });
-      
-      // Simulate delay
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
+      await signup(formData.name, formData.email, formData.password);
       toast({
         title: "Account Created!",
         description: "Welcome to StudySpot! You can now start exploring.",
@@ -94,7 +88,7 @@ const Signup = () => {
     } catch (error) {
       toast({
         title: "Signup Failed",
-        description: "Something went wrong. Please try again.",
+        description: error instanceof Error ? error.message : "Something went wrong. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -218,14 +212,7 @@ const Signup = () => {
                     }
                   />
                   <Label htmlFor="agreeToTerms" className="text-sm">
-                    I agree to the{" "}
-                    <Link to="/terms" className="text-primary hover:underline">
-                      Terms of Service
-                    </Link>
-                    {" "}and{" "}
-                    <Link to="/privacy" className="text-primary hover:underline">
-                      Privacy Policy
-                    </Link>
+                    I'll keep my reviews kind and honest, and I understand my account is saved only in this browser
                   </Label>
                 </div>
 

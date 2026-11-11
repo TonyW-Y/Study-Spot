@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Eye, EyeOff, LogIn, Mail } from "lucide-react";
 import { Button } from "@/components/ui/enhanced-button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,10 +7,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
+import { useApp } from "@/context/app-context";
 
 const Login = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { login } = useApp();
+  const routerLocation = useLocation();
+  const redirectTo = (routerLocation.state as { from?: string } | null)?.from ?? "/";
   
   const [formData, setFormData] = useState({
     email: "",
@@ -38,25 +42,17 @@ const Login = () => {
       return;
     }
 
-    // Simulate API call
     try {
-      console.log("Logging in:", { email: formData.email });
-      
-      // Simulate delay
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
+      const user = await login(formData.email, formData.password);
       toast({
-        title: "Welcome back!",
-        description: "You have successfully logged in.",
+        title: `Welcome back, ${user.name.split(" ")[0]}!`,
+        description: "Grab a warm drink and let's find your spot.",
       });
-      
-      // Navigate to home
-      navigate("/");
-      
+      navigate(redirectTo, { replace: true });
     } catch (error) {
       toast({
         title: "Login Failed",
-        description: "Invalid email or password. Please try again.",
+        description: error instanceof Error ? error.message : "Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -130,9 +126,18 @@ const Login = () => {
                 </div>
 
                 <div className="flex items-center justify-between">
-                  <Link to="/forgot-password" className="text-sm text-primary hover:underline">
+                  <button
+                    type="button"
+                    className="text-sm text-primary hover:underline"
+                    onClick={() =>
+                      toast({
+                        title: "Accounts are stored on this device",
+                        description: "This demo keeps accounts in your browser, so there's no email reset. Create a new account if you've forgotten your password.",
+                      })
+                    }
+                  >
                     Forgot password?
-                  </Link>
+                  </button>
                 </div>
 
                 <Button
@@ -172,6 +177,14 @@ const Login = () => {
                   <div>Email: demo@studyspot.com</div>
                   <div>Password: demo123</div>
                 </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setFormData({ email: "demo@studyspot.com", password: "demo123" })}
+                >
+                  Use demo account
+                </Button>
               </div>
             </CardContent>
           </Card>
