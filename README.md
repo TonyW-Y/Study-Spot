@@ -32,7 +32,7 @@ React 18 · TypeScript · Vite · Tailwind CSS · shadcn/ui (Radix) · Mapbox GL
 
 ```bash
 npm install
-cp .env.example .env    # optional: add your own Mapbox token
+echo VITE_MAPBOX_TOKEN=your_public_token > .env   # needed for the maps
 npm run dev             # http://localhost:8080
 ```
 
@@ -47,7 +47,7 @@ npm run dev             # http://localhost:8080
 
 | Variable            | Description |
 | ------------------- | ----------- |
-| `VITE_MAPBOX_TOKEN` | Public Mapbox token used for the maps. Get one free at [mapbox.com](https://account.mapbox.com/). |
+| `VITE_MAPBOX_TOKEN` | Public Mapbox token used for the maps, kept in a local `.env` file that is git-ignored. Get one free at [mapbox.com](https://account.mapbox.com/). Without it, everything works except the maps, which show a setup hint. |
 
 ## Data and privacy
 

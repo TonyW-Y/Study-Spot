@@ -150,6 +150,18 @@ const Map = ({ locations, onLocationClick, className, userLocation, highlightedI
     }
   }, [userLocation, showUserMarker]);
 
+  if (!MAPBOX_TOKEN) {
+    return (
+      <div className={`flex items-center justify-center rounded-3xl border border-dashed border-border bg-muted/50 p-6 text-center ${className ?? ""}`}>
+        <div className="max-w-xs">
+          <div className="mb-2 text-3xl">🗺️</div>
+          <p className="font-bold">Map needs a Mapbox token</p>
+          <p className="text-sm text-muted-foreground">Add VITE_MAPBOX_TOKEN to a .env file and restart the dev server.</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className={`relative ${className}`}>
       <div ref={mapContainer} className="h-full w-full overflow-hidden rounded-3xl border border-border/70 shadow-md" style={{ minHeight: '320px' }} />

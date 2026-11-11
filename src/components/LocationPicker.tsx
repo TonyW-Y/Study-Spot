@@ -92,6 +92,18 @@ const LocationPicker = ({ center, value, onChange, emoji = "📍", color = "#C97
     // eslint-disable-next-line react-hooks/exhaustive-deps -- emoji/color handled above
   }, [value]);
 
+  if (!MAPBOX_TOKEN) {
+    return (
+      <div className={"flex h-64 items-center justify-center rounded-2xl border border-dashed border-border bg-muted/50 p-6 text-center"}>
+        <div className="max-w-xs">
+          <div className="mb-2 text-3xl">🗺️</div>
+          <p className="font-bold">Map needs a Mapbox token</p>
+          <p className="text-sm text-muted-foreground">Add VITE_MAPBOX_TOKEN to a .env file and restart the dev server.</p>
+        </div>
+      </div>
+    );
+  }
+
   return <div ref={container} className="h-64 w-full overflow-hidden rounded-2xl border border-border shadow-inner" />;
 };
 
