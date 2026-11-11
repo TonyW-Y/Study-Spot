@@ -182,6 +182,29 @@
     font-family: "Nunito", system-ui, sans-serif;
   }
   .mapboxgl-popup-tip { border-top-color: hsl(var(--card)) !important; border-bottom-color: hsl(var(--card)) !important; }
+  .cozy-pin {
+    width: 38px; height: 38px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 50% 50% 50% 0; transform: rotate(-45deg);
+    background: var(--pin); border: 3px solid hsl(var(--card));
+    box-shadow: 0 6px 14px hsl(24 40% 20% / 0.28);
+    transition: transform .2s ease, box-shadow .2s ease;
+  }
+  .cozy-pin > span { transform: rotate(45deg); font-size: 17px; line-height: 1; }
+  .cozy-pin:hover, .cozy-pin.is-active, .cozy-pin:focus-visible {
+    transform: rotate(-45deg) scale(1.22); z-index: 5; outline: none;
+    box-shadow: 0 0 0 5px hsl(var(--secondary) / 0.45), 0 10px 22px hsl(24 40% 20% / 0.35);
+  }
+  .cozy-me {
+    width: 18px; height: 18px; border-radius: 50%;
+    background: hsl(var(--primary)); border: 3px solid hsl(var(--card));
+    box-shadow: 0 0 0 0 hsl(var(--primary) / 0.5);
+    animation: me-pulse 2.2s ease-out infinite;
+  }
+  @keyframes me-pulse {
+    0% { box-shadow: 0 0 0 0 hsl(var(--primary) / 0.5); }
+    100% { box-shadow: 0 0 0 18px hsl(var(--primary) / 0); }
+  }
   .mapboxgl-ctrl-group { @apply rounded-xl overflow-hidden shadow-md !important; }
 }
 

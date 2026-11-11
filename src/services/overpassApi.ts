@@ -20,7 +20,7 @@ const stableCount = (seed: string) => {
 };
 
 // Default ratings for OSM locations (since OSM doesn't have user ratings)
-const getDefaultRatings = (category: string) => {
+export const getDefaultRatings = (category: string) => {
   const baseRatings = {
     wifi: 3.5,
     outlets: 3.0,

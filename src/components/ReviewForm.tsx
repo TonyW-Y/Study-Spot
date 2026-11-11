@@ -1,137 +1,141 @@
-import { useState } from "react";
-import { Star, Wifi, Zap, Volume2, Users } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Star, Wifi, Zap, Volume2, Armchair } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "./ui/enhanced-button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 
-interface ReviewFormProps {
-  onSubmit: (review: ReviewData) => void;
-  isSubmitting?: boolean;
-}
-
-interface ReviewData {
-  ratings: {
-    wifi: number;
-    outlets: number;
-    noise: number;
-    seating: number;
-  };
+export interface ReviewData {
+  ratings: { wifi: number; outlets: number; noise: number; seating: number };
   comment: string;
 }
 
-const ReviewForm = ({ onSubmit, isSubmitting = false }: ReviewFormProps) => {
-  const [ratings, setRatings] = useState({
-    wifi: 0,
-    outlets: 0,
-    noise: 0,
-    seating: 0,
-  });
-  const [comment, setComment] = useState("");
+interface ReviewFormProps {
+  onSubmit: (review: ReviewData) => void;
+  onCancel?: () => void;
+  initial?: ReviewData;
+  title?: string;
+}
 
-  const ratingCategories = [
-    { key: 'wifi', label: 'Wi-Fi Speed', icon: Wifi, description: 'Internet connection quality' },
-    { key: 'outlets', label: 'Power Outlets', icon: Zap, description: 'Availability of charging spots' },
-    { key: 'noise', label: 'Noise Level', icon: Volume2, description: 'How quiet is it for studying?' },
-    { key: 'seating', label: 'Seating Comfort', icon: Users, description: 'Quality and availability of seats' },
-  ];
+const EMPTY = { wifi: 0, outlets: 0, noise: 0, seating: 0 };
 
-  const handleRatingChange = (category: string, rating: number) => {
-    setRatings(prev => ({ ...prev, [category]: rating }));
-  };
+const CATEGORIES = [
+  { key: "wifi", label: "Wi-Fi Speed", icon: Wifi, description: "Internet connection quality" },
+  { key: "outlets", label: "Power Outlets", icon: Zap, description: "How easy is it to find a plug?" },
+  { key: "noise", label: "Quietness", icon: Volume2, description: "5 = library-quiet, 1 = very loud" },
+  { key: "seating", label: "Seating Comfort", icon: Armchair, description: "Comfy chairs & table space" },
+] as const;
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    const allRatingsProvided = Object.values(ratings).every(rating => rating > 0);
-    if (!allRatingsProvided) {
-      alert("Please provide ratings for all categories");
-      return;
-    }
+const HINTS = ["", "Not great", "Okay", "Good", "Great", "Perfect!"];
 
-    onSubmit({
-      ratings,
-      comment: comment.trim(),
-    });
-
-    // Reset form
-    setRatings({ wifi: 0, outlets: 0, noise: 0, seating: 0 });
-    setComment("");
-  };
-
-  const StarRating = ({ rating, onRatingChange }: { rating: number; onRatingChange: (rating: number) => void }) => {
-    return (
-      <div className="flex gap-1">
+const StarRating = ({
+  rating,
+  onChange,
+  label,
+}: {
+  rating: number;
+  onChange: (rating: number) => void;
+  label: string;
+}) => {
+  const [hover, setHover] = useState(0);
+  const shown = hover || rating;
+  return (
+    <div className="flex items-center gap-2" onMouseLeave={() => setHover(0)}>
+      <div className="flex" role="radiogroup" aria-label={label}>
         {[1, 2, 3, 4, 5].map((star) => (
           <button
             key={star}
             type="button"
-            onClick={() => onRatingChange(star)}
-            className="p-1 rounded transition-colors hover:bg-muted"
+            role="radio"
+            aria-checked={rating === star}
+            aria-label={`${star} star${star > 1 ? "s" : ""}`}
+            onClick={() => onChange(star)}
+            onMouseEnter={() => setHover(star)}
+            className="rounded-full p-1 transition-transform hover:scale-125 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <Star
               className={cn(
-                "w-5 h-5 transition-colors",
-                star <= rating
-                  ? "text-secondary fill-secondary"
-                  : "text-muted-foreground"
+                "h-6 w-6 transition-colors",
+                star <= shown ? "fill-secondary text-secondary" : "text-muted-foreground/40"
               )}
             />
           </button>
         ))}
       </div>
-    );
+      <span className="text-xs font-semibold text-muted-foreground">{HINTS[shown]}</span>
+    </div>
+  );
+};
+
+const ReviewForm = ({ onSubmit, onCancel, initial, title = "Leave a Review" }: ReviewFormProps) => {
+  const [ratings, setRatings] = useState(initial?.ratings ?? EMPTY);
+  const [comment, setComment] = useState(initial?.comment ?? "");
+
+  useEffect(() => {
+    setRatings(initial?.ratings ?? EMPTY);
+    setComment(initial?.comment ?? "");
+  }, [initial]);
+
+  const remaining = Object.values(ratings).filter((r) => r === 0).length;
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (remaining > 0) return;
+    onSubmit({ ratings, comment: comment.trim() });
+    if (!initial) {
+      setRatings(EMPTY);
+      setComment("");
+    }
   };
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Leave a Review</CardTitle>
+        <CardTitle className="font-display text-xl">{title}</CardTitle>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Rating Categories */}
-          <div className="space-y-4">
-            {ratingCategories.map((category) => {
-              const Icon = category.icon;
-              return (
-                <div key={category.key} className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <Icon className="w-4 h-4 text-muted-foreground" />
-                    <Label className="text-sm font-medium">{category.label}</Label>
-                  </div>
-                  <p className="text-xs text-muted-foreground">{category.description}</p>
-                  <StarRating
-                    rating={ratings[category.key as keyof typeof ratings]}
-                    onRatingChange={(rating) => handleRatingChange(category.key, rating)}
-                  />
+          <div className="grid gap-5 sm:grid-cols-2">
+            {CATEGORIES.map(({ key, label, icon: Icon, description }) => (
+              <div key={key} className="space-y-1 rounded-2xl bg-muted/50 p-3">
+                <div className="flex items-center gap-2">
+                  <Icon className="h-4 w-4 text-primary" />
+                  <Label className="text-sm font-bold">{label}</Label>
                 </div>
-              );
-            })}
+                <p className="text-xs text-muted-foreground">{description}</p>
+                <StarRating
+                  label={label}
+                  rating={ratings[key]}
+                  onChange={(r) => setRatings((prev) => ({ ...prev, [key]: r }))}
+                />
+              </div>
+            ))}
           </div>
 
-          {/* Comment */}
           <div className="space-y-2">
-            <Label htmlFor="comment">Additional Comments (Optional)</Label>
+            <Label htmlFor="comment">Anything else? (optional)</Label>
             <Textarea
               id="comment"
-              placeholder="Share more details about your experience..."
+              placeholder="Best seat by the window, busy after 3pm, great chai…"
               value={comment}
+              maxLength={600}
               onChange={(e) => setComment(e.target.value)}
               className="min-h-[100px] resize-none"
             />
+            <div className="text-right text-xs text-muted-foreground">{comment.length}/600</div>
           </div>
 
-          {/* Submit Button */}
-          <Button
-            type="submit"
-            variant="hero"
-            className="w-full"
-            disabled={isSubmitting || Object.values(ratings).some(rating => rating === 0)}
-          >
-            {isSubmitting ? "Submitting..." : "Submit Review"}
-          </Button>
+          <div className="flex gap-2">
+            {onCancel && (
+              <Button type="button" variant="outline" className="flex-1" onClick={onCancel}>
+                Cancel
+              </Button>
+            )}
+            <Button type="submit" variant="hero" className="flex-1" disabled={remaining > 0}>
+              {remaining > 0 ? `Rate ${remaining} more categor${remaining === 1 ? "y" : "ies"}` : initial ? "Update Review" : "Submit Review"}
+            </Button>
+          </div>
         </form>
       </CardContent>
     </Card>

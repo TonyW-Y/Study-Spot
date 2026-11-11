@@ -4,22 +4,19 @@ import 'mapbox-gl/dist/mapbox-gl.css';
 import { Location } from '@/types/location';
 import { getCategory } from '@/lib/categories';
 import { useTheme } from 'next-themes';
-
-const styleFor = (theme?: string) =>
-  theme === 'dark' ? 'mapbox://styles/mapbox/dark-v11' : 'mapbox://styles/mapbox/light-v11';
+import { DEFAULT_CENTER, MAPBOX_TOKEN, mapStyleFor as styleFor } from '@/lib/mapbox';
 
 interface MapProps {
   locations: Location[];
   onLocationClick?: (locationId: string) => void;
   className?: string;
   userLocation?: { latitude: number; longitude: number } | null;
+  highlightedId?: string | null;
+  /** Show a 'you are here' dot (false when browsing a searched city) */
+  showUserMarker?: boolean;
 }
 
-const MAPBOX_TOKEN =
-  import.meta.env.VITE_MAPBOX_TOKEN ||
-  '';
-
-const DEFAULT_CENTER: [number, number] = [-122.4194, 37.7749];
+const DEFAULT: [number, number] = [DEFAULT_CENTER.longitude, DEFAULT_CENTER.latitude];
 
 const markerColor = (category: string) => getCategory(category).color;
 
@@ -38,10 +35,10 @@ const buildPopupContent = (location: Location) => {
   return root;
 };
 
-const Map = ({ locations, onLocationClick, className, userLocation }: MapProps) => {
+const Map = ({ locations, onLocationClick, className, userLocation, highlightedId, showUserMarker = true }: MapProps) => {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
-  const markersRef = useRef<mapboxgl.Marker[]>([]);
+  const markersRef = useRef<globalThis.Map<string, { marker: mapboxgl.Marker; el: HTMLDivElement }>>(new globalThis.Map());
   const userMarkerRef = useRef<mapboxgl.Marker | null>(null);
   const clickRef = useRef(onLocationClick);
   const hasCenteredRef = useRef(false);
@@ -59,14 +56,14 @@ const Map = ({ locations, onLocationClick, className, userLocation }: MapProps) 
     const instance = new mapboxgl.Map({
       container: mapContainer.current,
       style: styleFor(themeRef.current),
-      center: DEFAULT_CENTER,
+      center: DEFAULT,
       zoom: 12,
     });
     instance.addControl(new mapboxgl.NavigationControl(), 'top-right');
     map.current = instance;
     return () => {
-      markersRef.current.forEach((m) => m.remove());
-      markersRef.current = [];
+      markersRef.current.forEach(({ marker }) => marker.remove());
+      markersRef.current.clear();
       userMarkerRef.current = null;
       instance.remove();
       map.current = null;
@@ -85,37 +82,46 @@ const Map = ({ locations, onLocationClick, className, userLocation }: MapProps) 
     const instance = map.current;
     if (!instance) return;
 
-    markersRef.current.forEach((m) => m.remove());
-    markersRef.current = [];
+    markersRef.current.forEach(({ marker }) => marker.remove());
+    markersRef.current.clear();
 
     locations.forEach((location) => {
+      const meta = getCategory(location.category);
       const el = document.createElement('div');
-      el.style.cssText = `
-        width: 30px; height: 30px; background-color: ${markerColor(location.category)};
-        border: 3px solid white; border-radius: 50%; cursor: pointer;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-      `;
+      el.className = 'cozy-pin';
+      el.style.setProperty('--pin', meta.color);
+      const inner = document.createElement('span');
+      inner.textContent = meta.emoji;
+      el.appendChild(inner);
       el.setAttribute('role', 'button');
+      el.setAttribute('tabindex', '0');
       el.setAttribute('aria-label', location.name);
 
-      const popup = new mapboxgl.Popup({ offset: 20, closeButton: false, closeOnClick: false })
+      const popup = new mapboxgl.Popup({ offset: 26, closeButton: false, closeOnClick: false })
         .setDOMContent(buildPopupContent(location));
 
-      const marker = new mapboxgl.Marker(el)
+      const marker = new mapboxgl.Marker({ element: el, anchor: 'bottom' })
         .setLngLat([location.longitude, location.latitude])
         .addTo(instance);
 
-      el.addEventListener('click', () => clickRef.current?.(location.id));
+      const open = () => clickRef.current?.(location.id);
+      el.addEventListener('click', open);
+      el.addEventListener('keydown', (e) => e.key === 'Enter' && open());
       el.addEventListener('mouseenter', () =>
         popup.setLngLat([location.longitude, location.latitude]).addTo(instance)
       );
       el.addEventListener('mouseleave', () => popup.remove());
 
-      markersRef.current.push(marker);
+      markersRef.current.set(location.id, { marker, el });
     });
   }, [locations]);
 
-  // User marker + center once when location first arrives
+  // Highlight the marker for the hovered card
+  useEffect(() => {
+    markersRef.current.forEach(({ el }, id) => el.classList.toggle('is-active', id === highlightedId));
+  }, [highlightedId, locations]);
+
+  // User marker + recenter whenever the search center changes
   useEffect(() => {
     const instance = map.current;
     if (!instance) return;
@@ -125,12 +131,13 @@ const Map = ({ locations, onLocationClick, className, userLocation }: MapProps) 
       return;
     }
     const lngLat: [number, number] = [userLocation.longitude, userLocation.latitude];
-    if (!userMarkerRef.current) {
+    if (!showUserMarker) {
+      userMarkerRef.current?.remove();
+      userMarkerRef.current = null;
+    } else if (!userMarkerRef.current) {
       const userEl = document.createElement('div');
-      userEl.style.cssText = `
-        width: 16px; height: 16px; background-color: #3B82F6; border: 2px solid white;
-        border-radius: 50%; box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-      `;
+      userEl.className = 'cozy-me';
+      userEl.setAttribute('aria-label', 'You are here');
       userMarkerRef.current = new mapboxgl.Marker(userEl).setLngLat(lngLat).addTo(instance);
     } else {
       userMarkerRef.current.setLngLat(lngLat);
@@ -138,12 +145,14 @@ const Map = ({ locations, onLocationClick, className, userLocation }: MapProps) 
     if (!hasCenteredRef.current) {
       hasCenteredRef.current = true;
       instance.jumpTo({ center: lngLat, zoom: 13 });
+    } else {
+      instance.flyTo({ center: lngLat, zoom: 13, essential: true });
     }
-  }, [userLocation]);
+  }, [userLocation, showUserMarker]);
 
   return (
     <div className={`relative ${className}`}>
-      <div ref={mapContainer} className="w-full h-full rounded-lg shadow-md" style={{ minHeight: '400px' }} />
+      <div ref={mapContainer} className="h-full w-full overflow-hidden rounded-3xl border border-border/70 shadow-md" style={{ minHeight: '320px' }} />
       <button
         type="button"
         disabled={!userLocation}
@@ -151,11 +160,9 @@ const Map = ({ locations, onLocationClick, className, userLocation }: MapProps) 
           if (!map.current || !userLocation) return;
           map.current.flyTo({ center: [userLocation.longitude, userLocation.latitude], zoom: 13 });
         }}
-        className={`absolute top-4 left-4 px-3 py-2 rounded-md text-white shadow-md transition-opacity ${
-          userLocation ? 'bg-blue-600 hover:bg-blue-700 opacity-100' : 'bg-gray-400 cursor-not-allowed opacity-70'
-        }`}
+        className="absolute left-3 top-3 flex items-center gap-1.5 rounded-full bg-card/90 px-3.5 py-2 text-sm font-bold text-foreground shadow-md backdrop-blur transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
       >
-        Center on Me
+        <span aria-hidden>🧭</span> Recenter
       </button>
     </div>
   );

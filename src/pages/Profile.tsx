@@ -1,221 +1,146 @@
-import { useState } from "react";
-import { Star, MapPin, Calendar, Heart, Edit2, Settings } from "lucide-react";
+import { Link, Navigate } from "react-router-dom";
+import { Star, Calendar, Heart, MapPinPlus, LogOut, Timer } from "lucide-react";
 import LocationCard from "@/components/LocationCard";
 import { Button } from "@/components/ui/enhanced-button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Separator } from "@/components/ui/separator";
-import { mockUser, mockLocations, mockReviews } from "@/data/mockData";
+import { useApp } from "@/context/app-context";
+import { getCategory } from "@/lib/categories";
+import { reviewAverage } from "@/lib/ratings";
+import { readJSON } from "@/lib/storage";
+
+const EmptyState = ({ emoji, title, text, cta }: { emoji: string; title: string; text: string; cta: string }) => (
+  <div className="py-14 text-center">
+    <div className="mb-3 text-5xl animate-float">{emoji}</div>
+    <h3 className="mb-1 text-lg font-bold">{title}</h3>
+    <p className="mb-5 text-muted-foreground">{text}</p>
+    <Link to="/">
+      <Button variant="hero">{cta}</Button>
+    </Link>
+  </div>
+);
 
 const Profile = () => {
-  const [activeTab, setActiveTab] = useState("reviews");
-  
-  // Get user's reviews
-  const userReviews = mockReviews.filter(review => review.userId === mockUser.id);
-  
-  // Get bookmarked locations
-  const bookmarkedLocations = mockLocations.filter(location => 
-    mockUser.bookmarks.includes(location.id)
-  );
+  const { user, bookmarks, reviews, customSpots, logout } = useApp();
 
-  // Get locations with reviews for review tab display
-  const reviewsWithLocations = userReviews.map(review => ({
-    ...review,
-    location: mockLocations.find(loc => loc.id === review.locationId)
-  }));
+  if (!user) return <Navigate to="/login" replace state={{ from: "/profile" }} />;
+
+  const myReviews = reviews.filter((r) => r.userId === user.id);
+  const mySpots = customSpots.filter((s) => s.createdBy === user.id);
+  const avgGiven = myReviews.length
+    ? (myReviews.reduce((acc, r) => acc + reviewAverage(r.ratings), 0) / myReviews.length).toFixed(1)
+    : "–";
+  const focusSessions = readJSON<{ completed?: number }>("timer", {}).completed ?? 0;
+
+  const stats = [
+    { label: "Saved", value: bookmarks.length, icon: Heart },
+    { label: "Reviews", value: myReviews.length, icon: Star },
+    { label: "Avg given", value: avgGiven, icon: Star },
+    { label: "Focus sessions", value: focusSessions, icon: Timer },
+  ];
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Profile Header */}
-        <Card className="mb-8">
-          <CardContent className="pt-6">
-            <div className="flex flex-col md:flex-row items-start gap-6">
-              <Avatar className="h-24 w-24">
-                <AvatarImage src={mockUser.avatar} />
-                <AvatarFallback className="text-2xl font-semibold">
-                  {mockUser.name[0]}
-                </AvatarFallback>
-              </Avatar>
-              
-              <div className="flex-1 space-y-4">
-                <div>
-                  <div className="flex items-center gap-3 mb-2">
-                    <h1 className="text-2xl font-bold text-foreground">{mockUser.name}</h1>
-                    <Button variant="outline" size="sm" className="gap-2">
-                      <Edit2 className="w-4 h-4" />
-                      Edit Profile
-                    </Button>
-                  </div>
-                  <p className="text-muted-foreground">{mockUser.email}</p>
-                  
-                  <div className="flex items-center gap-1 text-sm text-muted-foreground mt-2">
-                    <Calendar className="w-4 h-4" />
-                    <span>Joined {new Date(mockUser.joinDate).toLocaleDateString('en-US', { 
-                      year: 'numeric', 
-                      month: 'long' 
-                    })}</span>
-                  </div>
-                </div>
-
-                <div className="flex gap-6">
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-foreground">{mockUser.reviewCount}</div>
-                    <div className="text-sm text-muted-foreground">Reviews</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-foreground">{mockUser.bookmarks.length}</div>
-                    <div className="text-sm text-muted-foreground">Bookmarks</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-foreground">4.2</div>
-                    <div className="text-sm text-muted-foreground">Avg Rating</div>
-                  </div>
-                </div>
-              </div>
-
-              <Button variant="outline" className="gap-2 md:self-start">
-                <Settings className="w-4 h-4" />
-                Settings
-              </Button>
+    <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8 animate-fade-up">
+      <Card className="mb-8 overflow-hidden">
+        <div className="h-28 bg-gradient-hero" />
+        <CardContent className="-mt-12 pb-6">
+          <div className="flex flex-col gap-5 md:flex-row md:items-end">
+            <div className="flex h-24 w-24 items-center justify-center rounded-full border-4 border-card bg-gradient-primary text-3xl font-bold text-primary-foreground shadow-lg">
+              {user.name.split(/\s+/).map((p) => p[0]).join("").slice(0, 2).toUpperCase()}
             </div>
-          </CardContent>
-        </Card>
+            <div className="flex-1">
+              <h1 className="text-3xl font-bold">{user.name}</h1>
+              <p className="text-muted-foreground">{user.email}</p>
+              <div className="mt-1 flex items-center gap-1 text-sm text-muted-foreground">
+                <Calendar className="h-4 w-4" />
+                Joined {new Date(user.joinDate).toLocaleDateString("en-US", { year: "numeric", month: "long" })}
+              </div>
+            </div>
+            <Button variant="outline" className="gap-2 self-start md:self-end" onClick={logout}>
+              <LogOut className="h-4 w-4" /> Log out
+            </Button>
+          </div>
 
-        {/* Content Tabs */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="reviews" className="gap-2">
-              <Star className="w-4 h-4" />
-              My Reviews
-            </TabsTrigger>
-            <TabsTrigger value="bookmarks" className="gap-2">
-              <Heart className="w-4 h-4" />
-              Bookmarks
-            </TabsTrigger>
-          </TabsList>
+          <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {stats.map(({ label, value, icon: Icon }) => (
+              <div key={label} className="rounded-2xl bg-muted/60 p-4 text-center">
+                <Icon className="mx-auto mb-1 h-4 w-4 text-primary" />
+                <div className="font-display text-2xl font-bold">{value}</div>
+                <div className="text-xs font-semibold text-muted-foreground">{label}</div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
 
-          {/* Reviews Tab */}
-          <TabsContent value="reviews" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Star className="w-5 h-5 text-secondary" />
-                  My Reviews ({userReviews.length})
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {reviewsWithLocations.length > 0 ? (
-                  <div className="space-y-6">
-                    {reviewsWithLocations.map((review) => (
-                      <div key={review.id} className="space-y-4">
-                        <div className="flex items-start gap-4">
-                          {review.location?.image && (
-                            <img 
-                              src={review.location.image} 
-                              alt={review.location.name}
-                              className="w-16 h-16 rounded-lg object-cover"
-                            />
-                          )}
-                          
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-2">
-                              <h3 className="font-semibold text-foreground">
-                                {review.location?.name}
-                              </h3>
-                              <Badge variant="outline" className="text-xs">
-                                {review.location?.category}
-                              </Badge>
-                            </div>
-                            
-                            <div className="flex items-center gap-2 mb-3">
-                              <div className="flex items-center gap-1">
-                                <Star className="w-4 h-4 text-secondary fill-secondary" />
-                                <span className="text-sm font-medium">
-                                  {Object.values(review.ratings).reduce((a, b) => a + b, 0) / 4}
-                                </span>
-                              </div>
-                              <span className="text-sm text-muted-foreground">
-                                {new Date(review.date).toLocaleDateString()}
-                              </span>
-                            </div>
-                            
-                            <p className="text-foreground text-sm mb-3">{review.comment}</p>
-                            
-                            <div className="grid grid-cols-4 gap-4">
-                              {Object.entries(review.ratings).map(([category, rating]) => (
-                                <div key={category} className="text-center">
-                                  <div className="text-xs text-muted-foreground capitalize">{category}</div>
-                                  <div className="text-sm font-medium">{rating}</div>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
+      <Tabs defaultValue="saved" className="w-full">
+        <TabsList className="mb-4 grid h-auto w-full grid-cols-3 rounded-full bg-muted p-1">
+          <TabsTrigger value="saved" className="gap-2 rounded-full py-2"><Heart className="h-4 w-4" />Saved</TabsTrigger>
+          <TabsTrigger value="reviews" className="gap-2 rounded-full py-2"><Star className="h-4 w-4" />Reviews</TabsTrigger>
+          <TabsTrigger value="spots" className="gap-2 rounded-full py-2"><MapPinPlus className="h-4 w-4" />My spots</TabsTrigger>
+        </TabsList>
 
-                          <div className="text-right">
-                            <div className="text-xs text-muted-foreground mb-1">
-                              {review.helpful} helpful votes
-                            </div>
-                            <Button variant="ghost" size="sm">
-                              <Edit2 className="w-3 h-3" />
-                            </Button>
-                          </div>
+        <TabsContent value="saved">
+          {bookmarks.length ? (
+            <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
+              {bookmarks.map((l) => <LocationCard key={l.id} location={l} />)}
+            </div>
+          ) : (
+            <Card><EmptyState emoji="💛" title="No saved spots yet" text="Tap the heart on any spot to keep it here." cta="Explore study spots" /></Card>
+          )}
+        </TabsContent>
+
+        <TabsContent value="reviews">
+          <Card>
+            {myReviews.length ? (
+              <ul className="divide-y divide-border">
+                {myReviews.map((r) => {
+                  const meta = getCategory(r.location.category);
+                  return (
+                    <li key={r.id}>
+                      <Link to={`/location/${r.locationId}`} className="flex items-start gap-4 p-5 transition-colors hover:bg-accent/50">
+                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl text-2xl" style={{ backgroundImage: meta.gradient }}>
+                          {meta.emoji}
                         </div>
-                        <Separator />
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-12">
-                    <Star className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                    <h3 className="text-lg font-semibold text-foreground mb-2">
-                      No reviews yet
-                    </h3>
-                    <p className="text-muted-foreground mb-4">
-                      Start reviewing study spots to help other students!
-                    </p>
-                    <Button variant="hero">Find Places to Review</Button>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center justify-between gap-2">
+                            <h3 className="truncate font-bold">{r.location.name}</h3>
+                            <span className="flex shrink-0 items-center gap-1 text-sm font-bold">
+                              <Star className="h-4 w-4 fill-secondary text-secondary" />
+                              {reviewAverage(r.ratings).toFixed(1)}
+                            </span>
+                          </div>
+                          <div className="text-xs text-muted-foreground">{new Date(r.date).toLocaleDateString()}</div>
+                          {r.comment && <p className="mt-1 line-clamp-2 text-sm">{r.comment}</p>}
+                        </div>
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : (
+              <EmptyState emoji="✍️" title="No reviews yet" text="Your reviews help other students find their calm corner." cta="Find places to review" />
+            )}
+          </Card>
+        </TabsContent>
 
-          {/* Bookmarks Tab */}
-          <TabsContent value="bookmarks" className="space-y-6">
+        <TabsContent value="spots">
+          {mySpots.length ? (
+            <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
+              {mySpots.map((l) => <LocationCard key={l.id} location={l} />)}
+            </div>
+          ) : (
             <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Heart className="w-5 h-5 text-destructive" />
-                  Saved Locations ({bookmarkedLocations.length})
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {bookmarkedLocations.length > 0 ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {bookmarkedLocations.map((location) => (
-                      <LocationCard key={location.id} location={location} />
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-12">
-                    <Heart className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                    <h3 className="text-lg font-semibold text-foreground mb-2">
-                      No bookmarks yet
-                    </h3>
-                    <p className="text-muted-foreground mb-4">
-                      Save your favorite study spots for quick access!
-                    </p>
-                    <Button variant="hero">Explore Study Spots</Button>
-                  </div>
-                )}
-              </CardContent>
+              <div className="py-14 text-center">
+                <div className="mb-3 text-5xl animate-float">🌱</div>
+                <h3 className="mb-1 text-lg font-bold">You haven't added a spot yet</h3>
+                <p className="mb-5 text-muted-foreground">Know a hidden gem? Share it with everyone.</p>
+                <Link to="/add"><Button variant="hero">Add a study spot</Button></Link>
+              </div>
             </Card>
-          </TabsContent>
-        </Tabs>
-      </div>
+          )}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };

@@ -1,247 +1,226 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { MapPin, Clock, Tag } from "lucide-react";
+import { MapPin, Clock, Tag, LocateFixed, Sparkles } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/enhanced-button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
-import { useToast } from "@/hooks/use-toast";
-import { CATEGORIES } from "@/lib/categories";
+import LocationPicker from "@/components/LocationPicker";
+import { CATEGORIES, getCategory } from "@/lib/categories";
+import { useApp } from "@/context/app-context";
+import { loadNearby } from "@/lib/nearbyCache";
+import { DEFAULT_CENTER } from "@/lib/mapbox";
+import { getDefaultRatings } from "@/services/overpassApi";
+import { cn } from "@/lib/utils";
+
+const AMENITIES = [
+  "Free WiFi", "Power Outlets", "Quiet Environment", "Group Tables", "Coffee/Tea",
+  "Outdoor Seating", "Parking", "Food Available", "Open Late", "Air Conditioning",
+  "Printing", "Study Rooms", "Wheelchair Accessible", "Natural Light",
+];
+
+type Coords = { latitude: number; longitude: number };
 
 const AddLocation = () => {
   const navigate = useNavigate();
-  const { toast } = useToast();
-  
-  const [formData, setFormData] = useState({
-    name: "",
-    address: "",
-    category: "",
-    description: "",
-    hours: "",
-    amenities: [] as string[],
-  });
-  
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { addSpot, user } = useApp();
 
-  const categories = CATEGORIES.map((c) => ({ value: c.id, label: `${c.emoji} ${c.label}` }));
+  const [form, setForm] = useState({ name: "", address: "", category: "", description: "", hours: "" });
+  const [amenities, setAmenities] = useState<string[]>([]);
+  const [coords, setCoords] = useState<Coords | null>(null);
+  const [center, setCenter] = useState<Coords>(() => loadNearby()?.center ?? DEFAULT_CENTER);
+  const [locating, setLocating] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
 
-  const amenityOptions = [
-    "Free WiFi",
-    "Power Outlets",
-    "Quiet Environment",
-    "Meeting Rooms",
-    "Coffee/Tea",
-    "Outdoor Seating",
-    "Parking Available",
-    "Food Available",
-    "24/7 Access",
-    "Air Conditioning",
-    "Printing Services",
-    "Study Rooms",
-  ];
+  // Start the picker near the user if we don't know where they are yet
+  useEffect(() => {
+    if (loadNearby() || !("geolocation" in navigator)) return;
+    navigator.geolocation.getCurrentPosition(
+      (p) => setCenter({ latitude: p.coords.latitude, longitude: p.coords.longitude }),
+      () => undefined,
+      { timeout: 8000 }
+    );
+  }, []);
 
-  const handleInputChange = (field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-  };
+  const set = (field: keyof typeof form, value: string) => setForm((prev) => ({ ...prev, [field]: value }));
 
-  const handleAmenityChange = (amenity: string, checked: boolean) => {
-    setFormData(prev => ({
-      ...prev,
-      amenities: checked
-        ? [...prev.amenities, amenity]
-        : prev.amenities.filter(a => a !== amenity)
-    }));
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSubmitting(true);
-
-    // Validate required fields
-    if (!formData.name || !formData.address || !formData.category) {
-      toast({
-        title: "Missing Information",
-        description: "Please fill in all required fields.",
-        variant: "destructive",
-      });
-      setIsSubmitting(false);
+  const useMyLocation = () => {
+    if (!("geolocation" in navigator)) {
+      toast.error("Location isn't available in this browser");
       return;
     }
-
-    // Simulate API call
-    try {
-      console.log("Submitting location:", formData);
-      
-      // Simulate delay
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      toast({
-        title: "Location Added Successfully!",
-        description: "Your study spot has been submitted for review.",
-      });
-      
-      // Reset form
-      setFormData({
-        name: "",
-        address: "",
-        category: "",
-        description: "",
-        hours: "",
-        amenities: [],
-      });
-      
-      // Navigate back to home after success
-      setTimeout(() => navigate("/"), 1500);
-      
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to add location. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsSubmitting(false);
-    }
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (p) => {
+        const c = { latitude: p.coords.latitude, longitude: p.coords.longitude };
+        setCoords(c);
+        setCenter(c);
+        setLocating(false);
+      },
+      () => {
+        toast.error("Couldn't get your location. Tap the map instead.");
+        setLocating(false);
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
   };
 
+  const missing = [
+    !form.name.trim() && "a name",
+    !form.category && "a category",
+    !form.address.trim() && "an address",
+    !coords && "a pin on the map",
+  ].filter(Boolean) as string[];
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitted(true);
+    if (missing.length) {
+      toast.error("Almost there!", { description: `Please add ${missing.join(", ")}.` });
+      return;
+    }
+    const meta = getCategory(form.category);
+    const spot = addSpot({
+      name: form.name.trim(),
+      address: form.address.trim(),
+      category: form.category,
+      latitude: coords!.latitude,
+      longitude: coords!.longitude,
+      description: form.description.trim() || `${form.name.trim()}: a ${meta.label.toLowerCase()} shared by a fellow student.`,
+      hours: form.hours.trim() || undefined,
+      amenities,
+      ratings: getDefaultRatings(form.category),
+      reviewCount: 0,
+    });
+    toast.success("Your spot is on the map! 🌱", { description: "Thanks for helping other students find their corner." });
+    navigate(`/location/${spot.id}`, { state: { location: spot } });
+  };
+
+  const meta = form.category ? getCategory(form.category) : null;
+
   return (
-    <div className="min-h-screen bg-background">
-      <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-foreground mb-4">
-            Add a New Study Spot
-          </h1>
-          <p className="text-muted-foreground">
-            Help fellow students and remote workers by sharing your favorite places to study and work.
-          </p>
+    <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6 lg:px-8 animate-fade-up">
+      <div className="mb-8 text-center">
+        <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-3xl bg-gradient-primary text-3xl shadow-glow animate-float">
+          🌱
         </div>
+        <h1 className="mb-2 text-3xl font-bold sm:text-4xl">Share a hidden gem</h1>
+        <p className="text-muted-foreground">
+          Know a calm corner with good Wi-Fi and comfy chairs? Put it on the map for everyone.
+        </p>
+      </div>
+
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 font-display text-xl">
+              <Sparkles className="h-5 w-5 text-primary" /> The basics
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-5">
+            <div className="space-y-2">
+              <Label htmlFor="name">Name *</Label>
+              <Input id="name" placeholder="e.g. The Reading Nook Café" value={form.name} onChange={(e) => set("name", e.target.value)}
+                aria-invalid={submitted && !form.name.trim()} />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Category *</Label>
+              <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Category">
+                {CATEGORIES.map((c) => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    role="radio"
+                    aria-checked={form.category === c.id}
+                    data-active={form.category === c.id}
+                    onClick={() => set("category", c.id)}
+                    className="cozy-chip"
+                  >
+                    <span>{c.emoji}</span> {c.label}
+                  </button>
+                ))}
+              </div>
+              {submitted && !form.category && <p className="text-xs text-destructive">Pick a category</p>}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="description">What makes it great?</Label>
+              <Textarea id="description" placeholder="Big windows, quiet upstairs, friendly baristas…" value={form.description}
+                onChange={(e) => set("description", e.target.value)} className="min-h-[100px]" maxLength={500} />
+            </div>
+          </CardContent>
+        </Card>
 
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <MapPin className="w-5 h-5 text-primary" />
-              Location Details
+            <CardTitle className="flex items-center gap-2 font-display text-xl">
+              <MapPin className="h-5 w-5 text-primary" /> Where is it?
             </CardTitle>
           </CardHeader>
-          
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-6">
-              {/* Basic Information */}
-              <div className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="name" className="required">Name *</Label>
-                    <Input
-                      id="name"
-                      placeholder="e.g. Blue Bottle Coffee"
-                      value={formData.name}
-                      onChange={(e) => handleInputChange("name", e.target.value)}
-                      required
-                    />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="category" className="required">Category *</Label>
-                    <Select value={formData.category} onValueChange={(value) => handleInputChange("category", value)}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select category" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {categories.map((category) => (
-                          <SelectItem key={category.value} value={category.value}>
-                            {category.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="address" className="required">Address *</Label>
-                  <Input
-                    id="address"
-                    placeholder="e.g. 123 Main St, San Francisco, CA 94102"
-                    value={formData.address}
-                    onChange={(e) => handleInputChange("address", e.target.value)}
-                    required
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="description">Description</Label>
-                  <Textarea
-                    id="description"
-                    placeholder="Tell us what makes this place great for studying or working..."
-                    value={formData.description}
-                    onChange={(e) => handleInputChange("description", e.target.value)}
-                    className="min-h-[100px]"
-                  />
-                </div>
-              </div>
-
-              {/* Hours */}
-              <div className="space-y-2">
-                <Label htmlFor="hours" className="flex items-center gap-2">
-                  <Clock className="w-4 h-4" />
-                  Operating Hours
-                </Label>
-                <Input
-                  id="hours"
-                  placeholder="e.g. Mon-Fri: 7:00 AM - 9:00 PM, Sat-Sun: 8:00 AM - 8:00 PM"
-                  value={formData.hours}
-                  onChange={(e) => handleInputChange("hours", e.target.value)}
-                />
-              </div>
-
-              {/* Amenities */}
-              <div className="space-y-3">
-                <Label className="flex items-center gap-2">
-                  <Tag className="w-4 h-4" />
-                  Amenities
-                </Label>
-                <p className="text-sm text-muted-foreground">
-                  Select all amenities available at this location
-                </p>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                  {amenityOptions.map((amenity) => (
-                    <div key={amenity} className="flex items-center space-x-2">
-                      <Checkbox
-                        id={amenity}
-                        checked={formData.amenities.includes(amenity)}
-                        onCheckedChange={(checked) =>
-                          handleAmenityChange(amenity, checked as boolean)
-                        }
-                      />
-                      <Label htmlFor={amenity} className="text-sm">
-                        {amenity}
-                      </Label>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Submit Button */}
-              <div className="pt-4">
-                <Button
-                  type="submit"
-                  variant="hero"
-                  className="w-full"
-                  disabled={isSubmitting}
-                >
-                  {isSubmitting ? "Adding Location..." : "Add Study Spot"}
-                </Button>
-                <p className="text-xs text-muted-foreground mt-2 text-center">
-                  Your submission will be reviewed before appearing on the map
-                </p>
-              </div>
-            </form>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="address">Address *</Label>
+              <Input id="address" placeholder="e.g. 123 Main St, Springfield" value={form.address}
+                onChange={(e) => set("address", e.target.value)} aria-invalid={submitted && !form.address.trim()} />
+            </div>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className={cn("text-sm", submitted && !coords ? "text-destructive" : "text-muted-foreground")}>
+                {coords ? "📍 Pin placed! Drag it to fine-tune." : "Tap the map to drop a pin *"}
+              </p>
+              <Button type="button" variant="outline" size="sm" className="gap-2" onClick={useMyLocation} disabled={locating}>
+                <LocateFixed className="h-4 w-4" /> {locating ? "Locating…" : "I'm here now"}
+              </Button>
+            </div>
+            <LocationPicker center={center} value={coords} onChange={setCoords} emoji={meta?.emoji} color={meta?.color} />
           </CardContent>
         </Card>
-      </div>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 font-display text-xl">
+              <Tag className="h-5 w-5 text-primary" /> Nice details
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-5">
+            <div className="space-y-2">
+              <Label htmlFor="hours" className="flex items-center gap-2"><Clock className="h-4 w-4" /> Hours</Label>
+              <Input id="hours" placeholder="e.g. Mon–Fri 7am–9pm, Sat–Sun 8am–8pm" value={form.hours} onChange={(e) => set("hours", e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label>Amenities</Label>
+              <div className="flex flex-wrap gap-2">
+                {AMENITIES.map((a) => {
+                  const on = amenities.includes(a);
+                  return (
+                    <button
+                      key={a}
+                      type="button"
+                      aria-pressed={on}
+                      data-active={on}
+                      onClick={() => setAmenities((prev) => (on ? prev.filter((x) => x !== a) : [...prev, a]))}
+                      className="cozy-chip text-xs"
+                    >
+                      {a}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <div className="space-y-2">
+          <Button type="submit" variant="hero" size="xl" className="w-full">
+            Add study spot ✨
+          </Button>
+          <p className="text-center text-xs text-muted-foreground">
+            {user ? "Your spot shows up right away on your map." : "Tip: log in so the spot is credited to you."} Spots are saved in this browser.
+          </p>
+        </div>
+      </form>
     </div>
   );
 };
