@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Eye, EyeOff, UserPlus, Mail, User } from "lucide-react";
+import { Eye, EyeOff, Mail, User } from "lucide-react";
 import { Button } from "@/components/ui/enhanced-button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -97,24 +97,22 @@ const Signup = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-[calc(100vh-5rem)]">
       <div className="flex items-center justify-center min-h-[calc(100vh-4rem)] px-4 py-12">
-        <div className="w-full max-w-md space-y-6">
+        <div className="w-full max-w-md space-y-6 animate-fade-up">
           {/* Header */}
           <div className="text-center">
-            <div className="w-12 h-12 bg-gradient-hero rounded-xl mx-auto mb-4 flex items-center justify-center">
-              <UserPlus className="w-6 h-6 text-white" />
-            </div>
-            <h1 className="text-2xl font-bold text-foreground">Join StudySpot</h1>
+            <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-[2rem] bg-gradient-primary text-4xl shadow-glow animate-float" aria-hidden>🌷</div>
+            <h1 className="text-3xl font-bold text-foreground">Join StudySpot</h1>
             <p className="text-muted-foreground mt-2">
-              Create an account to discover and review study spots
+              Save favourite spots, leave reviews and track your focus sessions.
             </p>
           </div>
 
           {/* Signup Form */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-center">Create Account</CardTitle>
+              <CardTitle className="text-center font-display text-xl">Create Account</CardTitle>
             </CardHeader>
             
             <CardContent>

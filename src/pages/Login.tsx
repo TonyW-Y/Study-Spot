@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Eye, EyeOff, LogIn, Mail } from "lucide-react";
+import { Eye, EyeOff, Mail } from "lucide-react";
 import { Button } from "@/components/ui/enhanced-button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -61,24 +61,22 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-[calc(100vh-5rem)]">
       <div className="flex items-center justify-center min-h-[calc(100vh-4rem)] px-4 py-12">
-        <div className="w-full max-w-md space-y-6">
+        <div className="w-full max-w-md space-y-6 animate-fade-up">
           {/* Header */}
           <div className="text-center">
-            <div className="w-12 h-12 bg-gradient-hero rounded-xl mx-auto mb-4 flex items-center justify-center">
-              <LogIn className="w-6 h-6 text-white" />
-            </div>
-            <h1 className="text-2xl font-bold text-foreground">Welcome Back</h1>
+            <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-[2rem] bg-gradient-primary text-4xl shadow-glow animate-float" aria-hidden>🧸</div>
+            <h1 className="text-3xl font-bold text-foreground">Welcome Back</h1>
             <p className="text-muted-foreground mt-2">
-              Sign in to your StudySpot account
+              Your cozy corner missed you. Sign in to pick up where you left off.
             </p>
           </div>
 
           {/* Login Form */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-center">Sign In</CardTitle>
+              <CardTitle className="text-center font-display text-xl">Sign In</CardTitle>
             </CardHeader>
             
             <CardContent>

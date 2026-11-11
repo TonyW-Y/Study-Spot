@@ -24,7 +24,7 @@ const FilterPanel = ({ filters, onFiltersChange, className, onClose }: FilterPan
   const ratingFilters = [
     { key: "wifi", label: "Wi-Fi", icon: Wifi },
     { key: "outlets", label: "Outlets", icon: Zap },
-    { key: "noise", label: "Noise", icon: Volume2 },
+    { key: "noise", label: "Quietness", icon: Volume2 },
     { key: "seating", label: "Seating", icon: Users },
     { key: "overall", label: "Overall", icon: MapPin },
   ];
@@ -72,9 +72,9 @@ const FilterPanel = ({ filters, onFiltersChange, className, onClose }: FilterPan
   return (
     <Card className={className}>
       <CardHeader className="flex-row items-center justify-between space-y-0 pb-4">
-        <CardTitle className="text-lg flex items-center gap-2">
-          <Filter className="w-5 h-5" />
-          Filters
+        <CardTitle className="flex items-center gap-2 font-display text-lg">
+          <Filter className="h-5 w-5 text-primary" />
+          Fine-tune
         </CardTitle>
       </CardHeader>
 
@@ -82,7 +82,7 @@ const FilterPanel = ({ filters, onFiltersChange, className, onClose }: FilterPan
         {/* Categories */}
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <Label className="text-sm font-medium">Categories</Label>
+            <Label className="text-sm font-bold">Categories</Label>
             <Button
               variant="ghost"
               size="sm"
@@ -126,7 +126,7 @@ const FilterPanel = ({ filters, onFiltersChange, className, onClose }: FilterPan
         {/* Distance */}
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <Label className="text-sm font-medium">Distance</Label>
+            <Label className="text-sm font-bold">Distance</Label>
             <span className="text-sm text-muted-foreground">
               {localFilters.distance === 5 ? "5+ km" : `${localFilters.distance} km`}
             </span>
@@ -145,7 +145,7 @@ const FilterPanel = ({ filters, onFiltersChange, className, onClose }: FilterPan
 
         {/* Minimum Ratings */}
         <div className="space-y-4">
-          <Label className="text-sm font-medium">Minimum Ratings</Label>
+          <Label className="text-sm font-bold">Minimum Ratings</Label>
           {ratingFilters.map((filter) => {
             const Icon = filter.icon;
             return (
@@ -158,7 +158,7 @@ const FilterPanel = ({ filters, onFiltersChange, className, onClose }: FilterPan
                   <span className="text-sm text-muted-foreground">
                     {localFilters.ratings[
                       filter.key as keyof typeof localFilters.ratings
-                    ] || "Any"}
+                    ] ? `${localFilters.ratings[filter.key as keyof typeof localFilters.ratings]}+ ★` : "Any"}
                   </span>
                 </div>
                 <Slider
@@ -181,8 +181,8 @@ const FilterPanel = ({ filters, onFiltersChange, className, onClose }: FilterPan
         <Button variant="outline" className="flex-1" onClick={resetFilters}>
           Reset
         </Button>
-        <Button className="flex-1" onClick={saveFilters}>
-          Save
+        <Button variant="hero" className="flex-1" onClick={saveFilters}>
+          Apply
         </Button>
       </CardFooter>
     </Card>
