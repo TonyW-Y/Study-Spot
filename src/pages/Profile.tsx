@@ -1,4 +1,4 @@
-import { Link, Navigate } from "react-router-dom";
+import { Link, Navigate, useNavigate } from "react-router-dom";
 import { Star, Calendar, Heart, MapPinPlus, LogOut, Timer } from "lucide-react";
 import LocationCard from "@/components/LocationCard";
 import { Button } from "@/components/ui/enhanced-button";
@@ -22,6 +22,7 @@ const EmptyState = ({ emoji, title, text, cta }: { emoji: string; title: string;
 
 const Profile = () => {
   const { user, bookmarks, reviews, customSpots, logout } = useApp();
+  const navigate = useNavigate();
 
   if (!user) return <Navigate to="/login" replace state={{ from: "/profile" }} />;
 
@@ -56,7 +57,7 @@ const Profile = () => {
                 Joined {new Date(user.joinDate).toLocaleDateString("en-US", { year: "numeric", month: "long" })}
               </div>
             </div>
-            <Button variant="outline" className="gap-2 self-start md:self-end" onClick={logout}>
+            <Button variant="outline" className="gap-2 self-start md:self-end" onClick={() => { logout(); navigate("/"); }}>
               <LogOut className="h-4 w-4" /> Log out
             </Button>
           </div>
