@@ -36,7 +36,7 @@ const Profile = () => {
     { label: "Saved", value: bookmarks.length, icon: Heart },
     { label: "Reviews", value: myReviews.length, icon: Star },
     { label: "Avg given", value: avgGiven, icon: Star },
-    { label: "Focus sessions", value: focusSessions, icon: Timer },
+    { label: "Focus today", value: focusSessions, icon: Timer },
   ];
 
   return (
