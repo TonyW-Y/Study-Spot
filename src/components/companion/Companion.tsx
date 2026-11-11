@@ -55,6 +55,7 @@ const Companion = () => {
   const [facingLeft, setFacingLeft] = useState(false);
   const [bubble, setBubble] = useState<{ text: string; id: number } | null>(null);
   const [hearts, setHearts] = useState<Heart[]>([]);
+  const [onTop, setOnTop] = useState(false);
 
   const setPose = useCallback((p: PetPose, durationMs = 0) => {
     poseRef.current = p;
@@ -165,6 +166,7 @@ const Companion = () => {
       say(completed > 1 ? `${completed} sessions done today! 🎉` : "First session done! 🎉");
     });
     const offBreath = onCozy("breathing", ({ active }) => {
+      setOnTop(active);
       if (active) setPose("sit", 60_000);
       else {
         setPose("happy", 1800);
@@ -212,7 +214,7 @@ const Companion = () => {
   return (
     <div
       ref={wrapRef}
-      className="pointer-events-none fixed left-0 z-40"
+      className={`pointer-events-none fixed left-0 ${onTop ? "z-[70]" : "z-40"}`}
       style={{ bottom: "calc(env(safe-area-inset-bottom, 0px) + 4px)", width: size, height: size * 0.8 }}
     >
       {/* Speech bubble (not mirrored) */}
