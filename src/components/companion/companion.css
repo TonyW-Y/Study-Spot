@@ -1,0 +1,37 @@
+/* Support-animal pose animations. Disabled automatically by the global reduced-motion rule. */
+.pet { will-change: transform; }
+
+.pet[data-pose="walk"] .pet-legs-a { animation: pet-step 0.36s ease-in-out infinite; transform-box: fill-box; transform-origin: top center; }
+.pet[data-pose="walk"] .pet-legs-b { animation: pet-step 0.36s ease-in-out infinite reverse; transform-box: fill-box; transform-origin: top center; }
+.pet[data-pose="walk"] .pet-body,
+.pet[data-pose="walk"] .pet-head { animation: pet-bob 0.36s ease-in-out infinite; }
+.pet .pet-tail { animation: pet-tail 1.6s ease-in-out infinite; }
+.pet[data-pose="happy"] .pet-tail { animation-duration: 0.35s; }
+.pet[data-pose="happy"] .pet-hop { animation: pet-hop 0.5s ease-out 2; }
+.pet[data-pose="sit"] .pet-legs-a,
+.pet[data-pose="sit"] .pet-legs-b { transform: scaleY(0.45); transform-box: fill-box; transform-origin: bottom center; }
+.pet[data-pose="sit"] .pet-body { transform: translateY(3px); }
+.pet[data-pose="sleep"] .pet-body { animation: pet-breathe 3.2s ease-in-out infinite; transform-box: fill-box; transform-origin: bottom center; }
+.pet[data-pose="sleep"] .pet-tail { animation-duration: 5s; }
+.pet[data-pose="idle"] .pet-head { animation: pet-look 4s ease-in-out infinite; }
+.pet .pet-eyes { animation: pet-blink 4.5s infinite; transform-box: fill-box; transform-origin: center; }
+
+@keyframes pet-step { 0%,100% { transform: rotate(14deg); } 50% { transform: rotate(-14deg); } }
+@keyframes pet-bob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-1.5px); } }
+@keyframes pet-tail { 0%,100% { transform: rotate(-8deg); } 50% { transform: rotate(10deg); } }
+@keyframes pet-hop { 0%,100% { transform: translateY(0); } 40% { transform: translateY(-14px); } }
+@keyframes pet-breathe { 0%,100% { transform: scaleY(1); } 50% { transform: scaleY(1.06); } }
+@keyframes pet-look { 0%,60%,100% { transform: rotate(0); } 70%,90% { transform: rotate(-6deg); } }
+@keyframes pet-blink { 0%,92%,100% { transform: scaleY(1); } 95% { transform: scaleY(0.1); } }
+
+.pet-zzz span { position: absolute; font-weight: 800; color: hsl(var(--muted-foreground)); animation: pet-zzz 3s ease-out infinite; opacity: 0; }
+.pet-zzz span:nth-child(2) { animation-delay: 1s; }
+.pet-zzz span:nth-child(3) { animation-delay: 2s; }
+@keyframes pet-zzz {
+  0% { transform: translate(0, 0) scale(0.6); opacity: 0; }
+  20% { opacity: 0.9; }
+  100% { transform: translate(14px, -30px) scale(1.2); opacity: 0; }
+}
+
+.pet-bubble { animation: pet-bubble-in 0.35s cubic-bezier(.2,1.4,.4,1) both; }
+@keyframes pet-bubble-in { from { transform: translateY(6px) scale(0.85); opacity: 0; } to { transform: none; opacity: 1; } }

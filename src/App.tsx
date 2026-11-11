@@ -13,6 +13,7 @@ import Profile from "./pages/Profile";
 import NotFound from "./pages/NotFound";
 import { AppProvider } from "./context/AppProvider";
 import { ThemeProvider } from "next-themes";
+import CozyLayer from "./components/cozy/CozyLayer";
 
 const queryClient = new QueryClient();
 
@@ -35,6 +36,7 @@ const App = () => (
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
+        <CozyLayer />
       </BrowserRouter>
     </TooltipProvider>
     </AppProvider>
