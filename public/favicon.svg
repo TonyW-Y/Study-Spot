@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#E08A4F"/>
+      <stop offset="1" stop-color="#B9532C"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="16" fill="url(#bg)"/>
+  <!-- steam -->
+  <g fill="none" stroke="#FFF3E2" stroke-width="3.2" stroke-linecap="round" opacity="0.9">
+    <path d="M24 9c-3 3 3 5 0 9"/>
+    <path d="M32 7c-3 3 3 5 0 9"/>
+    <path d="M40 9c-3 3 3 5 0 9"/>
+  </g>
+  <!-- mug -->
+  <path d="M14 24h30v14a13 13 0 0 1-13 13h-4a13 13 0 0 1-13-13z" fill="#FFF3E2"/>
+  <path d="M44 28h3a7 7 0 0 1 0 14h-4" fill="none" stroke="#FFF3E2" stroke-width="4.5"/>
+  <!-- coffee + heart -->
+  <rect x="17" y="27" width="24" height="4" rx="2" fill="#7A4326"/>
+  <path d="M29 46s-7-4.2-7-8.6a3.6 3.6 0 0 1 7-1.4 3.6 3.6 0 0 1 7 1.4c0 4.4-7 8.6-7 8.6z" fill="#D9603B"/>
+  <!-- saucer -->
+  <rect x="9" y="53" width="44" height="4.5" rx="2.25" fill="#FFF3E2" opacity="0.85"/>
+</svg>
