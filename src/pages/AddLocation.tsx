@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
+import { CATEGORIES } from "@/lib/categories";
 
 const AddLocation = () => {
   const navigate = useNavigate();
@@ -25,12 +26,7 @@ const AddLocation = () => {
   
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const categories = [
-    { value: "cafe", label: "Cafe" },
-    { value: "library", label: "Library" },
-    { value: "coworking", label: "Coworking Space" },
-    { value: "restaurant", label: "Restaurant" },
-  ];
+  const categories = CATEGORIES.map((c) => ({ value: c.id, label: `${c.emoji} ${c.label}` }));
 
   const amenityOptions = [
     "Free WiFi",

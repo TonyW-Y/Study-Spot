@@ -12,13 +12,14 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Location, FilterState } from "@/types/location";
 import { fetchStudyLocations, addDistancesToLocations } from "@/services/overpassApi";
 
-const ALL_CATEGORIES = ["cafe", "library", "coworking_space", "university", "college", "community_centre", "public_building"];
+const ALL_CATEGORIES = CATEGORY_IDS;
 const FETCH_RADIUS_KM = 5;
 const defaultFilters = (): FilterState => ({
   categories: [...ALL_CATEGORIES],
   distance: 5,
   ratings: { wifi: 0, outlets: 0, noise: 0, seating: 0, overall: 0 },
 });
+import { CATEGORY_IDS, getCategory } from "@/lib/categories";
 import heroImage from "@/assets/hero-studyspot.jpg";
 
 const Home = () => {
@@ -96,7 +97,7 @@ const Home = () => {
           !debouncedQuery ||
           location.name.toLowerCase().includes(debouncedQuery) ||
           location.address.toLowerCase().includes(debouncedQuery) ||
-          location.category.replace(/_/g, " ").includes(debouncedQuery);
+          getCategory(location.category).label.toLowerCase().includes(debouncedQuery);
 
         const matchesCategory =
           filters.categories.length === 0 || filters.categories.includes(location.category);

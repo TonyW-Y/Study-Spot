@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Location } from "@/types/location";
+import { getCategory } from "@/lib/categories";
 import { fetchStudyLocations, addDistancesToLocations } from "@/services/overpassApi";
 import { useToast } from "@/hooks/use-toast";
 import { useEffect, useState } from "react";
@@ -99,12 +100,7 @@ const LocationDetail = () => {
     );
   }
 
-  const categoryColors = {
-    cafe: "bg-secondary text-secondary-foreground",
-    library: "bg-primary text-primary-foreground", 
-    coworking: "bg-accent text-accent-foreground",
-    restaurant: "bg-muted text-muted-foreground"
-  };
+  const meta = getCategory(location.category);
 
   const ratingCategories = [
     { key: 'wifi', label: 'Wi-Fi Speed', icon: Wifi, color: 'text-blue-500' },
@@ -177,8 +173,8 @@ const LocationDetail = () => {
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2">
                       <h1 className="text-2xl font-bold text-foreground">{location.name}</h1>
-                      <Badge className={categoryColors[location.category as keyof typeof categoryColors]}>
-                        {location.category}
+                      <Badge className={meta.badge}>
+                        {meta.emoji} {meta.label}
                       </Badge>
                     </div>
                     

@@ -7,6 +7,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { FilterState } from "@/types/location";
+import { CATEGORIES } from "@/lib/categories";
 
 interface FilterPanelProps {
   filters: FilterState; // 👈 parent-controlled filters
@@ -18,15 +19,7 @@ interface FilterPanelProps {
 const FilterPanel = ({ filters, onFiltersChange, className, onClose }: FilterPanelProps) => {
   const [localFilters, setLocalFilters] = useState<FilterState>(filters);
   
-  const categories = [
-    { id: "cafe", label: "Cafes" },
-    { id: "library", label: "Libraries" },
-    { id: "coworking_space", label: "Co-working" },
-    { id: "university", label: "Universities" },
-    { id: "college", label: "Colleges" },
-    { id: "community_centre", label: "Community Centers" },
-    { id: "public_building", label: "Public Buildings" },
-  ];
+  const categories = CATEGORIES.map((c) => ({ id: c.id, label: `${c.emoji} ${c.plural}` }));
 
   const ratingFilters = [
     { key: "wifi", label: "Wi-Fi", icon: Wifi },

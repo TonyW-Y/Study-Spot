@@ -2,8 +2,9 @@ import { MapPin, Star, Wifi, Zap, Volume2, Users } from "lucide-react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "./ui/enhanced-button";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { Location } from "@/types/location";
+import { getCategory } from "@/lib/categories";
 
 interface LocationCardProps {
   location: Location;
@@ -14,12 +15,7 @@ const LocationCard = ({ location, className }: LocationCardProps) => {
   const { name, address, category, ratings, reviewCount, image, distance } = location;
   const navigate = useNavigate();
 
-  const categoryColors = {
-    cafe: "bg-secondary text-secondary-foreground",
-    library: "bg-primary text-primary-foreground", 
-    coworking: "bg-accent text-accent-foreground",
-    restaurant: "bg-muted text-muted-foreground"
-  };
+  const meta = getCategory(category);
 
   const getRatingIcon = (type: string) => {
     switch (type) {
@@ -54,10 +50,8 @@ const LocationCard = ({ location, className }: LocationCardProps) => {
             </div>
           </div>
           
-          <Badge 
-            className={categoryColors[category as keyof typeof categoryColors] || categoryColors.cafe}
-          >
-            {category}
+          <Badge className={meta.badge}>
+            {meta.emoji} {meta.label}
           </Badge>
         </div>
 

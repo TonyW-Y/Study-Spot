@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { Location } from '@/types/location';
+import { getCategory } from '@/lib/categories';
 
 interface MapProps {
   locations: Location[];
@@ -16,18 +17,7 @@ const MAPBOX_TOKEN =
 
 const DEFAULT_CENTER: [number, number] = [-122.4194, 37.7749];
 
-const markerColor = (category: string) => {
-  const colors: Record<string, string> = {
-    cafe: '#F59E0B',
-    library: '#0F766E',
-    coworking_space: '#059669',
-    university: '#7C3AED',
-    college: '#7C3AED',
-    community_centre: '#DB2777',
-    public_building: '#6B7280',
-  };
-  return colors[category] || colors.cafe;
-};
+const markerColor = (category: string) => getCategory(category).color;
 
 const buildPopupContent = (location: Location) => {
   const root = document.createElement('div');
@@ -39,7 +29,7 @@ const buildPopupContent = (location: Location) => {
   const meta = document.createElement('div');
   meta.style.fontSize = '12px';
   meta.style.opacity = '0.75';
-  meta.textContent = `${location.category.replace(/_/g, ' ')} · ★ ${location.ratings.overall.toFixed(1)}`;
+  meta.textContent = `${getCategory(location.category).label} · ★ ${location.ratings.overall.toFixed(1)}`;
   root.append(title, meta);
   return root;
 };
