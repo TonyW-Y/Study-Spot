@@ -4,7 +4,7 @@ import 'mapbox-gl/dist/mapbox-gl.css';
 import { Location } from '@/types/location';
 import { getCategory } from '@/lib/categories';
 import { useTheme } from 'next-themes';
-import { DEFAULT_CENTER, MAPBOX_TOKEN, mapStyleFor as styleFor } from '@/lib/mapbox';
+import { DEFAULT_CENTER, MAPBOX_TOKEN, createPinElement, mapStyleFor as styleFor } from '@/lib/mapbox';
 
 interface MapProps {
   locations: Location[];
@@ -18,20 +18,45 @@ interface MapProps {
 
 const DEFAULT: [number, number] = [DEFAULT_CENTER.longitude, DEFAULT_CENTER.latitude];
 
-const markerColor = (category: string) => getCategory(category).color;
+// Popup sits just above the pin (pin is ~53px tall, ~56px when lifted on hover)
+const POPUP_OFFSET: mapboxgl.PopupOptions['offset'] = {
+  top: [0, 8],
+  'top-left': [0, 8],
+  'top-right': [0, 8],
+  bottom: [0, -60],
+  'bottom-left': [0, -60],
+  'bottom-right': [0, -60],
+  left: [18, -30],
+  right: [-18, -30],
+};
 
 const buildPopupContent = (location: Location) => {
+  const meta = getCategory(location.category);
   const root = document.createElement('div');
-  root.style.padding = '4px';
+  root.className = 'cozy-popup';
+  root.style.setProperty('--pin', meta.color);
+
   const title = document.createElement('div');
-  title.style.fontWeight = '600';
-  title.style.fontSize = '13px';
+  title.className = 'cozy-popup-title';
   title.textContent = location.name;
-  const meta = document.createElement('div');
-  meta.style.fontSize = '12px';
-  meta.style.opacity = '0.75';
-  meta.textContent = `${getCategory(location.category).label} · ★ ${location.ratings.overall.toFixed(1)}`;
-  root.append(title, meta);
+
+  const row = document.createElement('div');
+  row.className = 'cozy-popup-meta';
+  const chip = document.createElement('span');
+  chip.className = 'cozy-popup-chip';
+  chip.textContent = `${meta.emoji} ${meta.label}`;
+  const rating = document.createElement('span');
+  rating.className = 'cozy-popup-rating';
+  rating.textContent = `★ ${location.ratings.overall.toFixed(1)}`;
+  row.append(chip, rating);
+  if (location.distance) {
+    const dist = document.createElement('span');
+    dist.className = 'cozy-popup-dist';
+    dist.textContent = location.distance;
+    row.append(dist);
+  }
+
+  root.append(title, row);
   return root;
 };
 
@@ -87,18 +112,18 @@ const Map = ({ locations, onLocationClick, className, userLocation, highlightedI
 
     locations.forEach((location) => {
       const meta = getCategory(location.category);
-      const el = document.createElement('div');
-      el.className = 'cozy-pin';
-      el.style.setProperty('--pin', meta.color);
-      const inner = document.createElement('span');
-      inner.textContent = meta.emoji;
-      el.appendChild(inner);
+      const el = createPinElement(meta.emoji, meta.color);
       el.setAttribute('role', 'button');
       el.setAttribute('tabindex', '0');
       el.setAttribute('aria-label', location.name);
 
-      const popup = new mapboxgl.Popup({ offset: 26, closeButton: false, closeOnClick: false })
-        .setDOMContent(buildPopupContent(location));
+      const popup = new mapboxgl.Popup({
+        offset: POPUP_OFFSET,
+        closeButton: false,
+        closeOnClick: false,
+        maxWidth: '260px',
+        className: 'cozy-hover-popup',
+      }).setDOMContent(buildPopupContent(location));
 
       const marker = new mapboxgl.Marker({ element: el, anchor: 'bottom' })
         .setLngLat([location.longitude, location.latitude])
@@ -107,10 +132,11 @@ const Map = ({ locations, onLocationClick, className, userLocation, highlightedI
       const open = () => clickRef.current?.(location.id);
       el.addEventListener('click', open);
       el.addEventListener('keydown', (e) => e.key === 'Enter' && open());
-      el.addEventListener('mouseenter', () =>
-        popup.setLngLat([location.longitude, location.latitude]).addTo(instance)
-      );
+      const show = () => popup.setLngLat([location.longitude, location.latitude]).addTo(instance);
+      el.addEventListener('mouseenter', show);
       el.addEventListener('mouseleave', () => popup.remove());
+      el.addEventListener('focus', show);
+      el.addEventListener('blur', () => popup.remove());
 
       markersRef.current.set(location.id, { marker, el });
     });

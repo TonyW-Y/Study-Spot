@@ -175,26 +175,69 @@
     background-image: linear-gradient(90deg, hsl(var(--primary)), hsl(var(--secondary-dark)));
   }
 
-  /* Mapbox popup restyle */
-  .mapboxgl-popup-content {
-    @apply rounded-2xl bg-card text-card-foreground shadow-lg !important;
-    padding: 10px 12px !important;
-    font-family: "Nunito", system-ui, sans-serif;
+  /* Only colour the tip edge that points at the pin, per anchor */
+  .mapboxgl-popup-anchor-bottom .mapboxgl-popup-tip,
+  .mapboxgl-popup-anchor-bottom-left .mapboxgl-popup-tip,
+  .mapboxgl-popup-anchor-bottom-right .mapboxgl-popup-tip { border-top-color: hsl(var(--card)) !important; }
+  .mapboxgl-popup-anchor-top .mapboxgl-popup-tip,
+  .mapboxgl-popup-anchor-top-left .mapboxgl-popup-tip,
+  .mapboxgl-popup-anchor-top-right .mapboxgl-popup-tip { border-bottom-color: hsl(var(--card)) !important; }
+  .mapboxgl-popup-anchor-left .mapboxgl-popup-tip { border-right-color: hsl(var(--card)) !important; }
+  .mapboxgl-popup-anchor-right .mapboxgl-popup-tip { border-left-color: hsl(var(--card)) !important; }
+
+  /* Hover card: never catches the mouse (no flicker), fades up gently */
+  .cozy-hover-popup { pointer-events: none; animation: popup-in .16s ease-out; }
+  .cozy-hover-popup .mapboxgl-popup-content {
+    border: 1px solid hsl(var(--border) / 0.7);
+    box-shadow: 0 10px 28px hsl(24 40% 20% / 0.22) !important;
   }
-  .mapboxgl-popup-tip { border-top-color: hsl(var(--card)) !important; border-bottom-color: hsl(var(--card)) !important; }
+  @keyframes popup-in { from { opacity: 0; translate: 0 4px; } to { opacity: 1; translate: 0 0; } }
+  .cozy-popup { min-width: 150px; }
+  .cozy-popup-title {
+    font-family: "Fraunces", Georgia, serif; font-weight: 600; font-size: 15px; line-height: 1.25;
+    overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  }
+  .cozy-popup-meta { margin-top: 6px; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 12px; }
+  .cozy-popup-chip {
+    border-radius: 999px; padding: 2px 8px; font-weight: 700;
+    background: color-mix(in srgb, var(--pin) 16%, transparent);
+    color: color-mix(in srgb, var(--pin) 70%, hsl(var(--card-foreground)));
+  }
+  .cozy-popup-rating { font-weight: 700; color: hsl(var(--secondary-dark)); }
+  .cozy-popup-dist { color: hsl(var(--muted-foreground)); }
+
+  /* Map pin. Mapbox owns .cozy-marker's transform (positioning), so the
+     rotation and hover lift live on the inner elements. */
+  .cozy-marker { width: 38px; height: 46px; cursor: pointer; outline: none; }
+  .cozy-marker:hover, .cozy-marker:focus-visible, .cozy-marker.is-active { z-index: 5; }
+  .cozy-marker::after { /* soft ground shadow under the tip */
+    content: ""; position: absolute; left: 50%; bottom: -3px; width: 16px; height: 6px;
+    translate: -50% 0; border-radius: 50%; background: hsl(24 40% 15% / 0.28); filter: blur(1.5px);
+    transition: width .18s ease, opacity .18s ease;
+  }
+  .cozy-pin-lift {
+    width: 100%; height: 100%; transform-origin: 50% 100%;
+    transition: transform .18s cubic-bezier(.34, 1.56, .64, 1);
+  }
   .cozy-pin {
-    width: 38px; height: 38px; cursor: pointer;
+    width: 38px; height: 38px;
     display: flex; align-items: center; justify-content: center;
     border-radius: 50% 50% 50% 0; transform: rotate(-45deg);
     background: var(--pin); border: 3px solid hsl(var(--card));
-    box-shadow: 0 6px 14px hsl(24 40% 20% / 0.28);
-    transition: transform .2s ease, box-shadow .2s ease;
+    box-shadow: -2px 3px 8px hsl(24 40% 20% / 0.25);
+    transition: box-shadow .18s ease, border-color .18s ease;
   }
-  .cozy-pin > span { transform: rotate(45deg); font-size: 17px; line-height: 1; }
-  .cozy-pin:hover, .cozy-pin.is-active, .cozy-pin:focus-visible {
-    transform: rotate(-45deg) scale(1.22); z-index: 5; outline: none;
-    box-shadow: 0 0 0 5px hsl(var(--secondary) / 0.45), 0 10px 22px hsl(24 40% 20% / 0.35);
-  }
+  .cozy-pin-emoji { transform: rotate(45deg); font-size: 17px; line-height: 1; user-select: none; }
+  .cozy-marker:hover .cozy-pin-lift,
+  .cozy-marker:focus-visible .cozy-pin-lift,
+  .cozy-marker.is-active .cozy-pin-lift { transform: translateY(-4px) scale(1.12); }
+  .cozy-marker:hover .cozy-pin,
+  .cozy-marker:focus-visible .cozy-pin,
+  .cozy-marker.is-active .cozy-pin { box-shadow: -3px 6px 14px hsl(24 40% 20% / 0.32); }
+  .cozy-marker:focus-visible .cozy-pin { border-color: hsl(var(--secondary)); }
+  .cozy-marker:hover::after,
+  .cozy-marker:focus-visible::after,
+  .cozy-marker.is-active::after { width: 12px; opacity: 0.6; }
   .cozy-me {
     width: 18px; height: 18px; border-radius: 50%;
     background: hsl(var(--primary)); border: 3px solid hsl(var(--card));
@@ -205,10 +248,24 @@
     0% { box-shadow: 0 0 0 0 hsl(var(--primary) / 0.5); }
     100% { box-shadow: 0 0 0 18px hsl(var(--primary) / 0); }
   }
-  .mapboxgl-ctrl-group { @apply rounded-xl overflow-hidden shadow-md !important; }
 }
 
-@media (prefers-reduced-motion: reduce) {
+/* Mapbox overrides. These target classes Mapbox adds at runtime, which never
+   appear in our source, so they must stay outside @layer or Tailwind drops them. */
+.mapboxgl-popup-content {
+  background: hsl(var(--card)) !important;
+  color: hsl(var(--card-foreground)) !important;
+  border-radius: 1rem !important;
+  box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1) !important;
+  padding: 10px 12px !important;
+  font-family: "Nunito", system-ui, sans-serif;
+}
+.mapboxgl-ctrl-group {
+  border-radius: 0.75rem !important;
+  overflow: hidden !important;
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1) !important;
+}
+ {
   *, *::before, *::after {
     animation-duration: 0.001ms !important;
     animation-iteration-count: 1 !important;

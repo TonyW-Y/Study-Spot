@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import { useTheme } from "next-themes";
-import { MAPBOX_TOKEN, mapStyleFor } from "@/lib/mapbox";
+import { MAPBOX_TOKEN, createPinElement, mapStyleFor, setPinAppearance } from "@/lib/mapbox";
 
 interface LocationPickerProps {
   center: { latitude: number; longitude: number };
@@ -59,8 +59,7 @@ const LocationPicker = ({ center, value, onChange, emoji = "📍", color = "#C97
   // Keep pin appearance in sync with category
   useEffect(() => {
     if (!pinEl.current) return;
-    pinEl.current.style.setProperty("--pin", color);
-    pinEl.current.firstElementChild!.textContent = emoji;
+    setPinAppearance(pinEl.current, emoji, color);
   }, [emoji, color]);
 
   useEffect(() => {
@@ -72,12 +71,8 @@ const LocationPicker = ({ center, value, onChange, emoji = "📍", color = "#C97
       return;
     }
     if (!marker.current) {
-      const el = document.createElement("div");
-      el.className = "cozy-pin is-active";
-      el.style.setProperty("--pin", color);
-      const span = document.createElement("span");
-      span.textContent = emoji;
-      el.appendChild(span);
+      const el = createPinElement(emoji, color);
+      el.classList.add("is-active");
       pinEl.current = el;
       marker.current = new mapboxgl.Marker({ element: el, anchor: "bottom", draggable: true })
         .setLngLat([value.longitude, value.latitude])
