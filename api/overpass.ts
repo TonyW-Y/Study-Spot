@@ -1,7 +1,8 @@
 // Vercel serverless function: fetches study spots from OpenStreetMap's Overpass API
 // on the server (no browser CORS issues) and lets Vercel's CDN cache each area.
 // Only StudySpot's own query is ever sent, so this is not an open proxy.
-import { buildOverpassQuery, OVERPASS_ENDPOINTS } from '../src/services/overpassQuery';
+// The ".js" extension is required: Vercel runs this as a native Node ES module.
+import { buildOverpassQuery, fetchOverpassHedged, roundCoord } from '../src/services/overpassQuery.js';
 
 // Overpass usage policy asks clients to identify themselves.
 const USER_AGENT = 'StudySpot/1.0 (+https://study-spot-two.vercel.app)';
@@ -22,34 +23,19 @@ export async function GET(request: Request): Promise<Response> {
     return json({ error: 'Invalid coordinates' }, 400, 'no-store');
   }
   const radiusKm = Math.min(10, Math.max(1, Number.isFinite(r) ? r : 5));
-  // Round to ~1 km so nearby visitors share the cached response
-  const query = buildOverpassQuery(Math.round(lat * 100) / 100, Math.round(lon * 100) / 100, radiusKm);
+  const query = buildOverpassQuery(roundCoord(lat), roundCoord(lon), radiusKm);
 
-  const errors: string[] = [];
-  for (const endpoint of OVERPASS_ENDPOINTS) {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 20000);
-    try {
-      const res = await fetch(endpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-          Accept: 'application/json',
-          'User-Agent': USER_AGENT,
-        },
-        body: `data=${encodeURIComponent(query)}`,
-        signal: controller.signal,
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = (await res.json()) as { elements?: unknown[] };
-      // Cache good answers on the CDN for a day, serve stale for a week while refreshing
-      return json({ elements: data.elements ?? [], source: new URL(endpoint).host }, 200,
-        'public, s-maxage=86400, stale-while-revalidate=604800');
-    } catch (err) {
-      errors.push(`${new URL(endpoint).host}: ${err instanceof Error ? err.message : String(err)}`);
-    } finally {
-      clearTimeout(timer);
-    }
+  try {
+    const { elements, endpoint } = await fetchOverpassHedged(query, {
+      userAgent: USER_AGENT,
+      totalTimeoutMs: 40000,
+    });
+    // Study spots rarely change: cache each area on the CDN for a week, and serve it
+    // stale for up to 30 days while a fresh copy is fetched in the background
+    return json({ elements, source: new URL(endpoint).host }, 200,
+      'public, s-maxage=604800, stale-while-revalidate=2592000');
+  } catch (err) {
+    return json({ error: 'All Overpass servers are busy', details: err instanceof Error ? err.message : String(err) },
+      502, 'no-store');
   }
-  return json({ error: 'All Overpass servers are busy', details: errors }, 502, 'no-store');
 }
